@@ -1,4 +1,14 @@
 #!/usr/bin/env ruby
+##PartMapper
+#PartMapper is a component of KerbalX.com 
+#It's function is to scan a local KSP GameData folder and then 
+#transmit a list of which parts where found in which mods to KerbalX
+
+
+#PartParser is a class taken from Jebretary which is a rails project.
+#In order to leave PartParser unchanged from how it is in Jebretary
+#and for it to work in a pure ruby environment some additional additional 
+#classes and methods are needed to make up for the ones rails provides.
 
 class HashWithIndifferentAccess < Hash
 end
@@ -33,6 +43,8 @@ class NilClass
 end
 
 
+#Class imported from Jebretary
+#Reads all .cfg files and determines the names of the parts inside
 class PartParser
 
   class LegacyPartException  < StandardError; end 
@@ -234,27 +246,29 @@ class PartParser
 end
 
 
-
+#replacement for the logging class from Jebretary
 class PartParser::System
   def self.log_error args
   end
 end
 
 
-
-
+#Boiler plate to manage running PartParser and reading the users auth-key
+#in order to transmit the data to KerbalX
 class KerbalXPartMapper
   require 'net/http'
 
   def self.run path = Dir.getwd
     ok_to_run = true
+    #path = "/home/sujimichi/KSP/KSPv0.23.0-Mod"
+    #path = "/home/sujimichi/KSP/KSPv0.24-Stock"
     begin
-      kX_key = File.open("KerbalX.key", "r"){|f| f.readlines}.first
-      raise "must be a string" unless kX_key.is_a?(String)
-      raise "must not be empty" if kX_key.empty?
+      kX_key = File.open("KerbalX.key", "r"){|f| f.readlines}.first.chomp.lstrip
+      raise "It must be a string" unless kX_key.is_a?(String)
+      raise "It must not be empty" if kX_key.empty?
     rescue => e
       ok_to_run = false
-      puts "Unable to read your KerbalX token. Make sure you place the token in a file called KerbalX.key in your KSP folder next to this exe. #{e}"
+      puts "Unable to read your KerbalX token. #{e}\nMake sure you place the token in a file called KerbalX.key in your KSP folder next to this exe."
       kX_key = nil
     end
     unless Dir.entries(path).include?("GameData") 
@@ -275,7 +289,8 @@ class KerbalXPartMapper
 
   def initialize path, email, token
     @path = path
-    @target = "http://kerbalx.herokuapp.com/knowledge_base/update"
+    @target = "http://kerbalx.com/knowledge_base/update"
+    #@target = "http://localhost:3000/knowledge_base/update"
     @token = token
     @email = email
   end
@@ -300,7 +315,7 @@ class KerbalXPartMapper
     else
       puts "\n\n#{@data.keys.size} Mods and #{@data.values.flatten.size} Parts detected in your KSP install:\n#{@path}"
       sleep 1
-      puts "\nTransmitting Data to Kerbal-X"
+      puts "\nTransmitting Data to #{@target}"
       responses = []
       @data.each do |k,v| 
         print "\nsending info about '#{k}'..."
@@ -322,44 +337,20 @@ class KerbalXPartMapper
         end
       end
 
-      puts "\n\nTramission Complete"
-      c = [0,0]
-      responses.each do |r| 
-        next unless r.code.to_s.eql?("200")
-        c[0] = c[0] + JSON.parse(r.body)["new_mods"].to_i
-        c[1] = c[1] + JSON.parse(r.body)["new_parts"].to_i
-      end
-
+      puts JSON.parse(responses.last.body)["closing_message"] 
       if responses.empty? || responses.map{|r| !r.code.to_s.eql?("200")}.any?
         puts "!!Some requests failed to run!!"
         responses.select{|r| !r.code.to_s.eql?("200")}.map{|r| r.message }.uniq.each do |message|
           puts "\t#{message}"
         end
       end
-
-      if responses.map{|r| r.code.to_s.eql?("200")}.any?
-        puts "New Mods: #{c[0]}\nNew Parts #{c[1]}"
-        begin
-          responses.map{|r| r.code.to_s.eql?("200")}.map{|r| JSON.parse(r.body)["message"]}.uniq.each do |message|
-            puts message
-          end
-        rescue
-        end
-        if (c[0] + c[1]).eql?(0)
-          puts "I've already seen the part and mod info you sent, but your information is still useful as it enforces the associations between mods and parts."
-        end
-
-      end
+    
     end
   end
 
   def send_data url, data = {}
-
     uri = URI.parse(url)
     http = Net::HTTP.new(uri.host, uri.port)
-    #http.use_ssl = true
-    #http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-
     request = Net::HTTP::Post.new(uri.request_uri)
     request.set_form_data(data)
     response = http.request(request)
