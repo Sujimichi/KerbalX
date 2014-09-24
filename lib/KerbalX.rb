@@ -5,9 +5,19 @@ require "KerbalX/version"
 require "KerbalX/extensions" unless defined? Rails
 
 require "KerbalX/part_parser"
-require 'KerbalX/system'
+require 'KerbalX/config'
 
 
 module KerbalX
   # Your code goes here...  
+  # or not as the case may be
+end
+
+
+class KerbalX::Config
+  include Config
+end
+
+class KerbalX::PartParser
+  include PartParser
 end

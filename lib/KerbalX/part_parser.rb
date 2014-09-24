@@ -1,21 +1,27 @@
-class PartParser
+module PartParser
 
   class LegacyPartException  < StandardError; end 
   class UnknownPartException < StandardError; end
 
 
   require 'json'
-  attr_accessor :parts, :resources, :internals, :props, :ignored_cfgs
+  attr_accessor :parts, :resources, :internals, :props, :ignored_cfgs, :system 
 
   def initialize dir, args = {:source => :game_folder, :write_to_file => false}
+    @system = KerbalX::Config
     begin
-      @stock_parts = System.new.get_config["stock_parts"]
+      raise "bingybongbong"
+      @stock_parts = @system.new.get_config["stock_parts"]
       raise "@stock_parts is not an array" unless @stock_parts.is_a?(Array)
       raise "@stock_parts contains non string elements" unless @stock_parts.map{|i| i.is_a?(String)}.all?
     rescue Exception => e
-      System.log_error "Could not read custom stock part definition\n#{@stock_parts.inspect}\n#{e}\n#{e.backtrace.first}"
+      @system.log_error "Could not read custom stock part definition\n#{@stock_parts.inspect}\n#{e}\n#{e.backtrace.first}"
       @stock_parts = ["Squad", "NASAmission"]
     end
+
+
+    raise @system.new.get_config.inspect
+    raise "stop"
 
     @instance_dir = dir
     #args[:source] = :game_folder if Rails.env.eql?("development")
@@ -28,7 +34,7 @@ class PartParser
         associate_components  
         write_to_file if args[:write_to_file] #unless Rails.env.eql?("development")
       rescue Exception => e
-        System.log_error "Failed to build map of installed parts\n#{e}\n#{e.backtrace.first}"
+        @system.log_error "Failed to build map of installed parts\n#{e}\n#{e.backtrace.first}"
       end      
       Dir.chdir(cur_dir)
     else
@@ -76,7 +82,7 @@ class PartParser
         @alert = true if part_name.include?("pod")
       rescue Exception => e
         @ignored_cfgs << cfg_path
-        #System.log_error "Error in index_parts while attempting to read part name\nFailed Part path: #{cfg_path}\n#{e}"
+        #@system.log_error "Error in index_parts while attempting to read part name\nFailed Part path: #{cfg_path}\n#{e}"
         next
       end
 
@@ -141,7 +147,7 @@ class PartParser
         end
 
       rescue Exception => e
-        System.log_error "Error in index_parts while attempting to read part file\nFailed Part path: #{cfg_path}\n#{e}\n#{e.backtrace.first}"
+        @system.log_error "Error in index_parts while attempting to read part file\nFailed Part path: #{cfg_path}\n#{e}\n#{e.backtrace.first}"
         @ignored_cfgs << cfg_path
         part_info = {}
       end

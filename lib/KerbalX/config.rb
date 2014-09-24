@@ -1,4 +1,4 @@
-class PartParser::System
+module Config
 
   def self.log_error args
     puts "OMG, so..this happend\n"
@@ -16,4 +16,3 @@ class PartParser::System
   end
 
 end
-

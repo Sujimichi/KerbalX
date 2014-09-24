@@ -5,6 +5,6 @@ require File.join(File.dirname(__FILE__), "lib", "system")       #error logger a
 
 
 @path = "/home/sujimichi/KSP/KSPv0.24-Stock"
-PartParser.new(@path, :source => :game_folder, :write_to_file => false)
+KerbalX::PartParser.new(@path, :source => :game_folder, :write_to_file => false)
 
 
