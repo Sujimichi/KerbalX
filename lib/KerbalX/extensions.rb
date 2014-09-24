@@ -26,6 +26,11 @@ class Array
   def blank?
     self.nil? || self.empty?
   end
+
+  def moo
+    puts "baa"
+  end
+
 end
 
 #add .blank? to String
