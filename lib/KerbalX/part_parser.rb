@@ -8,7 +8,7 @@ module PartParser
   attr_accessor :parts, :resources, :internals, :props, :ignored_cfgs, :system 
 
   def initialize dir, args = {:source => :game_folder, :write_to_file => false}
-    @system = KerbalX::Config
+    @system = Config
     begin
       raise "bingybongbong"
       @stock_parts = @system.new.get_config["stock_parts"]
