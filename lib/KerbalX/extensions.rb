@@ -7,9 +7,8 @@
 class HashWithIndifferentAccess < Hash
 end
 
-#Add split and blank? to array
+#Add split and .blank? to array
 class Array
-
   #splits an array on a given element
   #ie [1,2,3,4,5].split(3) => [[1, 2], [4, 5]] 
   def split n = []
@@ -26,11 +25,6 @@ class Array
   def blank?
     self.nil? || self.empty?
   end
-
-  def moo
-    puts "baa"
-  end
-
 end
 
 #add .blank? to String

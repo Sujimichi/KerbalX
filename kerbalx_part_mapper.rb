@@ -3,7 +3,7 @@ require File.join(File.dirname(__FILE__), "lib", "part_parser")  #main part read
 require File.join(File.dirname(__FILE__), "lib", "system")       #error logger and config opts
 
 
-
+require 'KerbalX'
 @path = "/home/sujimichi/KSP/KSPv0.24-Stock"
 KerbalX::PartParser.new(@path, :source => :game_folder, :write_to_file => false)
 
