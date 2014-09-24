@@ -13,7 +13,7 @@ class PartParser
       raise "@stock_parts is not an array" unless @stock_parts.is_a?(Array)
       raise "@stock_parts contains non string elements" unless @stock_parts.map{|i| i.is_a?(String)}.all?
     rescue Exception => e
-      #System.log_error "Could not read custom stock part definition\n#{@stock_parts.inspect}\n#{e}\n#{e.backtrace.first}"
+      System.log_error "Could not read custom stock part definition\n#{@stock_parts.inspect}\n#{e}\n#{e.backtrace.first}"
       @stock_parts = ["Squad", "NASAmission"]
     end
 
@@ -28,7 +28,7 @@ class PartParser
         associate_components  
         write_to_file if args[:write_to_file] #unless Rails.env.eql?("development")
       rescue Exception => e
-        #System.log_error "Failed to build map of installed parts\n#{e}\n#{e.backtrace.first}"
+        System.log_error "Failed to build map of installed parts\n#{e}\n#{e.backtrace.first}"
       end      
       Dir.chdir(cur_dir)
     else
@@ -65,7 +65,7 @@ class PartParser
       cfg = File.open(cfg_path,"r:ASCII-8BIT"){|f| f.readlines}
       begin
         next if cfg_path.include?("mechjeb_settings") #not all .cfg files are part files, some are settings, this ignores mechjeb settings (which are numerous). 
-
+        
         #next if cfg_path.match(/GameData\/\w+.cfg/) #ignore cfg files in the root of GameData
         next if cfg_path.match(/^GameData\//) && cfg_path.split("/").size.eql?(2)
         next if cfg_path.match(/^saves\//) #ignore cfg files in saves folder
@@ -83,7 +83,7 @@ class PartParser
       begin
         dir = cfg_path.sub("/part.cfg","")
         part_info = {:dir => dir, :path => cfg_path }
-
+        
 
         if cfg_path.match(/^GameData/)
           folders = dir.split("/")
@@ -141,7 +141,7 @@ class PartParser
         end
 
       rescue Exception => e
-        #System.log_error "Error in index_parts while attempting to read part file\nFailed Part path: #{cfg_path}\n#{e}\n#{e.backtrace.first}"
+        System.log_error "Error in index_parts while attempting to read part file\nFailed Part path: #{cfg_path}\n#{e}\n#{e.backtrace.first}"
         @ignored_cfgs << cfg_path
         part_info = {}
       end
@@ -197,3 +197,4 @@ class PartParser
   end
 
 end
+

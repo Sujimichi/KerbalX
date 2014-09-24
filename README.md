@@ -1,6 +1,29 @@
-KerbalX.com
-=======
+# KerbalX
 
-KSP Craft Sharing site
+TODO: Write a gem description
 
-PartMapper - the compnent that allows KerbalX to learn about new mods and parts, see http://KerbalX.com/about and http://KerbalX.com/PartMapper for more info.
+## Installation
+
+Add this line to your application's Gemfile:
+
+    gem 'KerbalX'
+
+And then execute:
+
+    $ bundle
+
+Or install it yourself as:
+
+    $ gem install KerbalX
+
+## Usage
+
+TODO: Write usage instructions here
+
+## Contributing
+
+1. Fork it ( https://github.com/[my-github-username]/KerbalX/fork )
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'Add some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
+5. Create a new Pull Request
