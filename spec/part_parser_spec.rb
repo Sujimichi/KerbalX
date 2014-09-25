@@ -5,7 +5,6 @@ describe KerbalX::PartParser do
   before(:all) do 
     @path = File.join(File.dirname(__FILE__), "..", "test_env")
     @parser = KerbalX::PartParser.new @path
-
   end
 
   it 'it should find the correct number of parts' do 
@@ -13,7 +12,7 @@ describe KerbalX::PartParser do
     #The complexity of this test is more in the setup of the test_env folder which contains a number of 
     #different .cfg files defining parts and other aspects (resources, settings, all kinda stuff)
     #There are also some part.cfgs that define multiple parts as well as the more common 1 part per cfg setup
-    #includes Modules which modify parts (ie from TweakScale) which have in the past been falsly identifyed as parts
+    #includes Modules which modify parts (ie from TweakScale) which have in the past been falsely identifyed as parts
     #contains Agency definitions. 
     @parser.parts.keys.count.should == 28
   end 
@@ -83,6 +82,10 @@ describe KerbalX::PartParser do
     it 'should have discovered internals' do 
       @parser.internals.keys.should == ["mk1PodCockpit", "PodCockpit", "B9_Cockpit_HL_Internal"]
     end
+
+    it 'should associate props with internals' do 
+      @parser.internals["mk1PodCockpit"][:props].should == ["NavBall"]
+    end
   end
 
   describe "others" do 
@@ -105,6 +108,27 @@ describe KerbalX::PartParser do
       end
 
     end
+  end
+
+
+  describe "ignore mods" do 
+    before(:all) do 
+      @parser = KerbalX::PartParser.new @path, :ignore_mods => ["NASAmission", "B9_Aerospace"]
+    end
+
+    it 'should not include part info from an ignored mod' do 
+      @parser.parts.should_not have_key "B9.Cockpit.MK2"
+      @parser.parts.should_not have_key "Size3AdvancedEngine"
+    end
+
+    it 'should not have resources from ignored mods' do  
+      @parser.resources.should_not have_key "B9CompressedAir"
+    end
+
+    it 'should not have interntals from ignored mods' do 
+      @parser.internals.should_not have_key "B9_Cockpit_HL_Internal"
+    end
+
   end
 
 
