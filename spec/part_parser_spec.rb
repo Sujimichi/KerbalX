@@ -53,10 +53,82 @@ describe KerbalX::PartParser do
       @parser.parts["B9.Cockpit.MK2"][:stock].should == true
     end
 
+  end
+
+  describe "resouces" do 
+
+    it 'should have discovered resoucres' do 
+      @parser.resources.keys.should == [
+        "LiquidFuel", 
+        "Oxidizer", 
+        "SolidFuel", 
+        "MonoPropellant", 
+        "XenonGas", 
+        "ElectricCharge", 
+        "IntakeAir", 
+        "EVAPropellant", 
+        "B9CompressedAir"
+      ] 
+    end
 
   end
 
+  describe "props" do 
+    it 'should have discovered props' do 
+      @parser.props.keys.should == ["NavBall", "B9_AbortButton", "B9_AbortButton2"]
+    end
+  end
+
+  describe "internals" do 
+    it 'should have discovered internals' do 
+      @parser.internals.keys.should == ["mk1PodCockpit", "PodCockpit", "B9_Cockpit_HL_Internal"]
+    end
+  end
+
+  describe "others" do 
+    it "should have discovered other 'unknown' things which are classed as 'other' and ignored" do 
+  
+      should_be_ignored = [
+        "GameData/Squad/Agencies/Agents.cfg",
+        "GameData/Squad/Resources/ScienceDefs.cfg",
+        "GameData/BoulderCo/ActiveTextureManagerConfigs/KAS.cfg",
+        "GameData/KerbPaint/Plugins/KerbPaint.cfg",
+        "GameData/TweakScale/Kethane_TweakScale.cfg",
+        "GameData/B9_Aerospace/Agencies/Agents.cfg", 
+        "GameData/B9_Aerospace/ATM_B9_Aerospace.cfg",
+        "GameData/KAS/addModule.cfg", 
+        "GameData/KAS/settings.cfg"
+      ]
+      
+      should_be_ignored.each do |ignored_cfg|
+        @parser.ignored_cfgs.should be_include ignored_cfg
+      end
+
+    end
+  end
+
+
 end
 
- ["IRPiston", "IRPistonHalf", "IRPistonFourth", "IRHingeOpen", "IRHingeOpenHalf", "IRHingeOpenFourth", "ModulePaintable", "TweakScale", "dummyPartIgnore", "Part", "ModuleWheel", "ORSModuleResourceExtraction", "USI.ResourceConverter", "KarboniteGenerator", "ORSModuleAirScoop", "FissionRadiator", "FissionGenerator", "FissionReprocessor", "ModuleGenerator", "ModuleDeployableSolarPanel", "ModuleReactionWheel", "ModuleEngines", "ModuleEnginesFX", "ModuleRCS", "ModuleControlSurface", "ModuleResourceIntake", "RealFuels.ModuleFuelTanks", "ModuleSolarSail", "MicrowavePowerReceiver", "ISRUScoop", "AtmosphericIntake", "FNRadiator", "AlcubierreDrive", "FNNozzleController", "AntimatterStorageTank", "FNGenerator", "FNFusionReactor", "solidBooster", "liquidEngineMini", "radialEngineMini", "sepMotor1", "JetEngine", "fuelTank.long", "mk2SpacePlaneAdapter", "miniFuelTank", "mk1pod", "Mark1Cockpit", "Mark2Cockpit", "C7AerospaceDivision", "DinkelsteinKerman'sConstructionEmporium", "ExperimentalEngineeringGroup", "FLOOYDDynamicsResearchLabs", "GoliathNationalProducts", "IntegratedIntegrals", "IonicSymphonicProtonicElectronics", "JebediahKerman'sJunkyardandSpacecraftPartsCo", "KerbalMotionLLC", "KerbinWorld-FirstsRecord-KeepingSociety", "Kerbodyne", "KerlingtonModelRocketsandPaperProductsInc", "MaxoConstructionToys", "MovingPartsExpertsGroup", "O.M.B.DemolitionEnterprises", "PeriapsisRocketSuppliesCo", "ProbodobodyneInc", "Research&DevelopmentDepartment", "ReactionSystemsLtd", "RockomaxConglomerate", "RokeaInc", "Sean'sCannery", "STEADLEREngineeringCorps", "StrutCo", "Vac-CoAdvancedSuctionSystems", "WinterOwlAircraftEmporium", "ZaltonicElectronics", "Food", "B9.Control.RCS.Port.R1", "B9.Control.RCS.Block.R5", "B9.Control.RCS.Block.R12", "B9.Control.RCS.Block.R6", "B9.Utility.InfoDrive", "B9.Aero.T2.Tail", "B9.Cockpit.MK2", "B9.Rocket", "TetragonProjects", "Size3LargeTank", "MassiveBooster", "Size3AdvancedEngine"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#parts listed by the old PartParser, containes many things that are not parts.
+=begin
+["IRPiston", "IRPistonHalf", "IRPistonFourth", "IRHingeOpen", "IRHingeOpenHalf", "IRHingeOpenFourth", "ModulePaintable", "TweakScale", "dummyPartIgnore", "Part", "ModuleWheel", "ORSModuleResourceExtraction", "USI.ResourceConverter", "KarboniteGenerator", "ORSModuleAirScoop", "FissionRadiator", "FissionGenerator", "FissionReprocessor", "ModuleGenerator", "ModuleDeployableSolarPanel", "ModuleReactionWheel", "ModuleEngines", "ModuleEnginesFX", "ModuleRCS", "ModuleControlSurface", "ModuleResourceIntake", "RealFuels.ModuleFuelTanks", "ModuleSolarSail", "MicrowavePowerReceiver", "ISRUScoop", "AtmosphericIntake", "FNRadiator", "AlcubierreDrive", "FNNozzleController", "AntimatterStorageTank", "FNGenerator", "FNFusionReactor", "solidBooster", "liquidEngineMini", "radialEngineMini", "sepMotor1", "JetEngine", "fuelTank.long", "mk2SpacePlaneAdapter", "miniFuelTank", "mk1pod", "Mark1Cockpit", "Mark2Cockpit", "C7AerospaceDivision", "DinkelsteinKerman'sConstructionEmporium", "ExperimentalEngineeringGroup", "FLOOYDDynamicsResearchLabs", "GoliathNationalProducts", "IntegratedIntegrals", "IonicSymphonicProtonicElectronics", "JebediahKerman'sJunkyardandSpacecraftPartsCo", "KerbalMotionLLC", "KerbinWorld-FirstsRecord-KeepingSociety", "Kerbodyne", "KerlingtonModelRocketsandPaperProductsInc", "MaxoConstructionToys", "MovingPartsExpertsGroup", "O.M.B.DemolitionEnterprises", "PeriapsisRocketSuppliesCo", "ProbodobodyneInc", "Research&DevelopmentDepartment", "ReactionSystemsLtd", "RockomaxConglomerate", "RokeaInc", "Sean'sCannery", "STEADLEREngineeringCorps", "StrutCo", "Vac-CoAdvancedSuctionSystems", "WinterOwlAircraftEmporium", "ZaltonicElectronics", "Food", "B9.Control.RCS.Port.R1", "B9.Control.RCS.Block.R5", "B9.Control.RCS.Block.R12", "B9.Control.RCS.Block.R6", "B9.Utility.InfoDrive", "B9.Aero.T2.Tail", "B9.Cockpit.MK2", "B9.Rocket", "TetragonProjects", "Size3LargeTank", "MassiveBooster", "Size3AdvancedEngine"]
+
+=end
  
