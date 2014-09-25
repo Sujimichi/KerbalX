@@ -5,18 +5,14 @@ require "KerbalX/version"
 require "KerbalX/extensions" unless defined? Rails
 
 #The main crunk in this gems ba-dunk-a-dunk
-require "KerbalX/part_parser" 
+require "KerbalX/part_parser"
 
 #basic logger, intended to be replaced with one from the environment the PartParser is being used in
-require 'KerbalX/logger'      
+require 'KerbalX/logger'
 
+require 'KerbalX/auth_token'
 
 module KerbalX
   # Your code goes here...  
   # or not as the case may be
-end
-
-
-class KerbalX::PartParser
-  include PartParser
 end
