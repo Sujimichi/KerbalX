@@ -1,0 +1,89 @@
+module KerbalX
+
+  class Interface
+    require 'net/http'
+
+    class FailedResponse
+      attr_accessor :body, :code
+      def initialize args
+        @body = args[:body]
+        @code = args[:code]
+      end
+    end
+
+    def initialize token, &blk
+      #@site = "http://kerbalx.com"
+      @site = "http://localhost:3000"
+
+      @token = token
+      if @token.valid?
+        yield(self) if block_given?
+      else
+        puts "\nUnable to proceed"
+        puts @token.errors
+      end
+    end
+
+    def update_knowledge_base_with parts
+      mods_with_parts = group_parts_by_mod parts
+      url = "#{@site}/knowledge_base/update"           
+      responses = []
+      
+      mods_with_parts.each do |mod_name, parts| 
+        print "\nsending info about '#{mod_name}'..."
+        begin
+          r = send_data url, :part_data => {mod_name => parts}.to_json
+          sleep(1)
+        rescue => e
+          puts "\n\nERROR\n#{e}\n\n"
+          r = FailedResponse.new :body => "\n\ttransmission failed", :code => 500
+        end
+        responses << r
+        
+        puts r.code.to_s.eql?("200") ? "OK" : "Failed #{r.code}"
+        cautiously { puts JSON.parse(r.body)["message"]  }
+      end
+
+      cautiously { puts JSON.parse(responses.last.body)["closing_message"] }
+      failures = responses.select{|r| !r.code.to_s.eql?("200")}.map{|r| r.message }.uniq
+      unless failures.blank?
+        puts "Some requests could not be processed because reasons;"
+        failures.each do |message|
+          puts "\t#{message}"
+        end
+      end
+
+    end
+
+    #takes a hash of part info from the PartParser ie; {"part_name" => {hash_of_part_info}, ...}
+    #and returns a hash of mod_name entails array of part names, {mod_name => ["part_name", "part_name"], ...}
+    def group_parts_by_mod parts     
+      grouped_parts = parts.group_by{|k,v| v[:mod]} #group parts by mod
+      grouped_parts.map{|mod, group| 
+        { mod => group.map{|g| g.first} }           #remove other part info, leaving just array of part names
+      }.inject{|i,j| i.merge(j)}                    #re hash
+    end
+
+
+
+    private
+
+    def send_data url, data = {}
+      uri = URI.parse(url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      request = Net::HTTP::Post.new(uri.request_uri)
+      request.set_form_data(data.merge(@token.to_hash))
+      response = http.request(request)
+    end
+
+    def cautiously &blk
+      begin
+        yield
+      rescue => e
+
+      end
+    end
+
+  end 
+
+end

@@ -10,7 +10,7 @@ module KerbalX
         kX_key = File.open(path, "r"){|f| f.readlines}.join.chomp.lstrip
       rescue
         kX_key = ""
-        @errors << "Unable to read your KerbalX token"
+        @errors << "Could not read your KerbalX token. \nMake sure your KerbalX.key is in #{dir}"
       end
 
       @email = kX_key.split(":").first

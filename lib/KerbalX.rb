@@ -12,6 +12,8 @@ require 'KerbalX/logger'
 
 require 'KerbalX/auth_token'
 
+require 'KerbalX/interface'
+
 module KerbalX
   # Your code goes here...  
   # or not as the case may be
