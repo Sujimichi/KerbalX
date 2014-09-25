@@ -1,21 +1,24 @@
 module PartParser
-
+  attr_accessor :parts, :resources, :internals, :props, :ignored_cfgs, :logger
+  
   class LegacyPartException  < StandardError; end 
   class UnknownPartException < StandardError; end
 
-
   require 'json'
-  attr_accessor :parts, :resources, :internals, :props, :ignored_cfgs, :system 
-
+  
   def initialize dir, args = {}
-    defaults = {:source => :game_folder, :write_to_file => false, :stock_parts => ["Squad", "NASAmission"], :logger => KerbalX::Logger}
+    defaults = {
+      :source => :game_folder, 
+      :write_to_file => false, 
+      :stock_parts => ["Squad", "NASAmission"], 
+      :logger => KerbalX::Logger
+    }
     args = defaults.merge(args)
 
     @logger = args[:logger]
     @stock_parts = args[:stock_parts]
 
     @instance_dir = dir
-    #args[:source] = :game_folder if Rails.env.eql?("development")
     if args[:source] == :game_folder
       cur_dir = Dir.getwd
       Dir.chdir(@instance_dir)
@@ -23,7 +26,7 @@ module PartParser
         index_parts
         @parts ||= {}
         associate_components  
-        write_to_file if args[:write_to_file] #unless Rails.env.eql?("development")
+        write_to_file if args[:write_to_file]
       rescue Exception => e
         @logger.log_error "Failed to build map of installed parts\n#{e}\n#{e.backtrace.first}"
       end      
@@ -87,7 +90,7 @@ module PartParser
           mod_dir = folders[1] #mod dir is the directory inside GameData
 
           part_info.merge!(:mod => mod_dir)
-          part_info.merge!(:stock => true) if @stock_parts.include?(mod_dir)
+          part_info.merge!(:stock => @stock_parts.include?(mod_dir)) 
 
           #determine the type of cfg file
           first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? }.first #first line that isn't comments or empty space
@@ -95,7 +98,7 @@ module PartParser
           type = :prop     if first_significant_line.match(/^PROP/)
           type = :internal if first_significant_line.match(/^INTERNAL/)
           type = :resource if first_significant_line.match(/^RESOURCE_DEFINITION/)
-          type ||= :part #assume undetected headings will be parts
+          type ||= :other
           part_info.merge!(:type => type)      
 
           #incases of a maim mod dir having sub divisions within it    
@@ -120,6 +123,9 @@ module PartParser
               nil
             elsif type.eql?(:prop)
               @props.merge!(name => part_info.clone)
+              nil
+            elsif type.eql?(:other)
+              @ignored_cfgs << cfg_path
               nil
             else #its a part init'
               part_info.merge!(:file => cfg)
@@ -146,7 +152,7 @@ module PartParser
     end.flatten.compact
 
     #Construct parts hash. ensuring that part info is not blank and that it has a name key    
-    @parts = part_info.select{|part| 
+    @parts = part_info.select{|part|  
       !part.empty? && part.has_key?(:name)
     }.map{|n| 
       {n[:name].gsub("_",".") => n} 
