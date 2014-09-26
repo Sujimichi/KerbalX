@@ -13,7 +13,7 @@ puts "\nPartMapper for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
 @path = Dir.getwd
 #@path = "/home/sujimichi/KSP/KSPv0.24-Stock"
-@path = "/home/sujimichi/KSP/KSPv0.24.2-Mod"
+#@path = "/home/sujimichi/KSP/KSPv0.24.2-Mod"
 #@path = "/home/sujimichi/KSP/KSPv0.23.0-Mod"
 
 #raise error when GameData is not found
