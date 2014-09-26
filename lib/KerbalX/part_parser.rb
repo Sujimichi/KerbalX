@@ -11,6 +11,7 @@ module KerbalX
       defaults = {
         :source => :game_folder,                  #default is to read part info from the GameData folder. Alternative is to read from file.
         :write_to_file => false,                  #if set to true the data will be written to .partDB file (default is partmapper.parts.DB or name can be supplied by :file)
+        :associate_components => true,            #default opt is to associate props, internals and resources with parts (can take time)
         :file => "part_mapper.partsDB",           #default name of file for writing to / reading from
         :stock_parts => ["Squad", "NASAmission"], #defines the default definition of which "mods" are stock
         :logger => KerbalX::Logger                #default logger, replace with a logger from the environment PartParser is being used it.
@@ -29,7 +30,7 @@ module KerbalX
         begin
           index_parts                           #discover all .cfg files and determine what they defines (Parts, Resources, Props..etc)
           @parts ||= {}                         
-          associate_components                  #associate props, internals and resources with parts
+          associate_components if @args[:associate_components] #associate props, internals and resources with parts
           write_to_file if @args[:write_to_file]#optionally, write the data to file
         rescue Exception => e
           @logger.log_error "Failed to build map of installed parts\n#{e}\n#{e.backtrace.first}"
@@ -67,9 +68,9 @@ module KerbalX
       @ignored_cfgs = []
       part_info = part_cfgs.map do |cfg_path|
 
-        #read .cfg file as ASCII-8BIT. read in this format to support some of the chars present in (some) KSP files.
-        cfg = File.open(cfg_path,"r:ASCII-8BIT"){|f| f.readlines}
-
+        #read .cfg file as r:bom|utf-8
+        cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines}
+      
         begin
           next if cfg_path.include?("mechjeb_settings") #not all .cfg files are part files, some are settings, this ignores mechjeb settings (which are numerous). 
           next if cfg_path.match(/^GameData\//) && cfg_path.split("/").size.eql?(2) #ignore cfg files in the root of GameData
@@ -84,7 +85,7 @@ module KerbalX
           #@logger.log_error "Error in index_parts while attempting to read part name\nFailed Part path: #{cfg_path}\n#{e.backtrace.first}"
           next
         end
-
+        
         begin
           dir = cfg_path.sub("/part.cfg","")
           part_info = {:dir => dir, :path => cfg_path }
