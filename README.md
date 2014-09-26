@@ -9,10 +9,9 @@ Also provides a class to interface with KerbalX.com and transmit the information
 
 
 ## Installation
+Gem not relased on RubyGems (yet), github install
 
-Add this line to your application's Gemfile:
-
-    gem 'KerbalX'
+    gem "wicked_pdf", :git => "git://github.com
 
 And then execute:
 
