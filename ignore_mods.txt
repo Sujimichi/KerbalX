@@ -1,0 +1,7 @@
+#Add the name(s) of folders in GameData you want PartMapper to ignore
+
+#add each folder on a new line, written exactly as it appears in the GameData folder.
+
+#ie;
+
+ExampleModtoSkip
