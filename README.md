@@ -44,5 +44,7 @@ To run the tests you need to unzip test_env.zip and you'll need to ask me for th
 - What is contained in the test_env is just .cfg files and only 1 or 2 from certain selected mods, so it shouldn't really be an issue.
 
 
-
-
+##exe compilation
+The PartMapper.exe is compiled using OCRA to package it up with the core ruby libs it needs to function in a windows environment which is devoid of ~joy~ Ruby.
+    
+    ocra kerbalx_part_mapper.rb --no-enc
