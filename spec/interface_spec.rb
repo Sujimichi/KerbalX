@@ -7,14 +7,11 @@ describe KerbalX::Interface do
     @token  = KerbalX::AuthToken.new(@path)
   end
 
-  it 'should work like this' do 
-   
-    KerbalX::Interface.new(@token) do |kerbalx|
-      kerbalx.update_knowledge_base_with  KerbalX::PartParser.new(@path).parts
-    end
-
-  end
-
+  #it 'should work like this' do 
+    #KerbalX::Interface.new(@token) do |kerbalx|
+    #  kerbalx.update_knowledge_base_with  KerbalX::PartParser.new(@path).parts
+    #end
+  #end
 
   describe "group_parts_by_mod" do 
     before(:each) do  

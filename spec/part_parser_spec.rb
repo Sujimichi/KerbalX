@@ -14,9 +14,13 @@ describe KerbalX::PartParser do
     #There are also some part.cfgs that define multiple parts as well as the more common 1 part per cfg setup
     #includes Modules which modify parts (ie from TweakScale) which have in the past been falsely identifyed as parts
     #contains Agency definitions. 
-    @parser.parts.keys.count.should == 28
+    @parser.parts.keys.count.should == 29
   end 
 
+  it "should find known problem parts" do 
+    @parser.parts.keys.should be_include "GooExperiment" #has utf BOM (\xEF\xBB\xBF) while most other parts do not.
+  end
+  
   it 'should have the correct mod folder for discovered parts' do 
     @parser.parts["JetEngine"][:mod].should == "Squad"
     @parser.parts["Size3AdvancedEngine"][:mod].should == "NASAmission"
@@ -127,6 +131,18 @@ describe KerbalX::PartParser do
 
     it 'should not have interntals from ignored mods' do 
       @parser.internals.should_not have_key "B9_Cockpit_HL_Internal"
+    end
+
+  end
+
+  describe "with GameData not present" do 
+    before(:all) do 
+      @parser = KerbalX::PartParser.new File.join([Dir.getwd, "lib"])
+    end
+
+    it 'should not explode, just will not find any parts' do 
+      @parser.parts.should be_empty
+      @parser.ignored_cfgs.should be_empty
     end
 
   end

@@ -36,7 +36,7 @@ describe KerbalX::AuthToken do
       end
 
       it 'should have errors which report why it is invalid' do 
-        @token.errors.should be_include "Unable to read your KerbalX token" 
+        @token.errors.join.should be_include "Could not read your KerbalX token" 
       end
 
     end
