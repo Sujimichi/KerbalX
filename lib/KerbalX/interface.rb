@@ -29,19 +29,25 @@ module KerbalX
       url = "#{@site}/knowledge_base/update"           
       responses = []
       
+      skip = false
       mods_with_parts.each do |mod_name, parts| 
+        next if skip
         print "\nsending info about '#{mod_name}'..."
         begin
           r = send_data url, :part_data => {mod_name => parts}.to_json
           sleep(1)
         rescue => e
-          puts "\n\nERROR\n#{e}\n\n"
-          r = FailedResponse.new :body => "\n\ttransmission failed", :code => 500
+          r = FailedResponse.new :body => {:message => "Internal Error\n#{e}\n\n"}.to_json, :code => 500
         end
         responses << r
         
-        puts r.code.to_s.eql?("200") ? "OK" : "Failed #{r.code}"
+        puts r.code.to_s.eql?("200") ? "OK" : "Failed -> error: #{r.code}"
         cautiously { puts JSON.parse(r.body)["message"]  }
+
+        if ["401", "426"].include?(r.code.to_s)
+          puts "\nABORT!!"
+          skip = true 
+        end        
       end
 
       cautiously { puts JSON.parse(responses.last.body)["closing_message"] }
@@ -72,7 +78,11 @@ module KerbalX
       uri = URI.parse(url)
       http = Net::HTTP.new(uri.host, uri.port)
       request = Net::HTTP::Post.new(uri.request_uri)
-      request.set_form_data(data.merge(@token.to_hash))
+
+      data.merge! @token.to_hash
+      data.merge! :version => KerbalX::VERSION
+
+      request.set_form_data(data)
       response = http.request(request)
     end
 
