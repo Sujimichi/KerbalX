@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    KerbalX (0.0.1)
+    KerbalX (0.3.0)
 
 GEM
   remote: https://rubygems.org/
