@@ -32,3 +32,17 @@ And then execute:
     end
     
 More instructions and more functionality will be added soon    
+
+
+
+##Running Tests
+The tests depend on a mock setup of a KSP GameData folder.  This mock setup contains some .cfg files from KSP core and 3rd party mods.
+Basically it contains things that should not be distributed.  Therefore the this data is contained in a password protected zip.
+To run the tests you need to unzip test_env.zip and you'll need to ask me for the password in order to do so.
+
+- I hope to change this, I'm just being over careful atm
+- What is contained in the test_env is just .cfg files and only 1 or 2 from certain selected mods, so it shouldn't really be an issue.
+
+
+
+
