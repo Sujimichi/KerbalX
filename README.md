@@ -1,6 +1,8 @@
 # KerbalX
 
-TODO: Write a gem description
+A gem to scan the GameData folder in KSP and return details about the parts and which mods they belong to.
+Also provides a class to interface with KerbalX.com and transmit the information about discovered parts.
+
 
 ## Installation
 
@@ -12,12 +14,18 @@ And then execute:
 
     $ bundle
 
-Or install it yourself as:
-
-    $ gem install KerbalX
-
 ## Usage
 
-TODO: Write usage instructions here
+### PartParser
 
+    parser = KerbalX::PartParser.new <path_to_KSP_install>
+    parser.parts #=> Hash of part names and details 
+      
+### KerbalX.com Interface      
 
+    @path = <path_to_KSP_install>
+    KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
+      kerbalx.update_knowledge_base_with KerbalX::PartParser.new(@path).parts
+    end
+    
+More instructions and more functionality will be added soon    
