@@ -24,7 +24,7 @@ end
 #read list of mods to ignore
 ignore = KerbalX::IgnoreFile.new(@path) if File.exists?(File.join([@path, "partmapper.ignore"]))
 
-#main 
+#scan for Parts and transmit to KerbalX with the users auth-token
 KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
   puts "Scanning Parts in #{@path}"
   puts "These mods will be ignored; #{ignore.join(", ")}" unless ignore.blank?
