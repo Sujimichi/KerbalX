@@ -1,5 +1,9 @@
 # KerbalX
 
+A compnent of KerbalX.com, the craft sharing site for the Kerbal Space Program.
+see http://KerbalX.com/about and http://KerbalX.com/PartMapper for more info.
+
+
 A gem to scan the GameData folder in KSP and return details about the parts and which mods they belong to.
 Also provides a class to interface with KerbalX.com and transmit the information about discovered parts.
 
