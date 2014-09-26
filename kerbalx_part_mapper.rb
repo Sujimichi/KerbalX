@@ -1,10 +1,12 @@
+#This is the script which is compiled into a .exe by OCRA for use in a windows environment that is devoid of ~joy~ Ruby.
+
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "version")      #version info
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "extensions")   #adds some rails methods (ie .blank?) to core classes (String, Array and NilClass).
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "part_parser")  #main part reading logic
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "logger")       #error logger
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "auth_token")   #auth key reader
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "interface")    #interface with KerbalX.com
-require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ignore_file")    #interface with KerbalX.com
+require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ignore_file")  #read any user deifned mods to be ignored
 
 
 puts "\nPartMapper for KerbalX.com - v#{KerbalX::VERSION}\n\n"
@@ -36,10 +38,6 @@ end
 puts "\n\nThis terminal will stay open for 2 minutes if you want to review the output"
 puts "Or you can close it now with CTRL+C"
 sleep 120
-
-#TODO
-#- specs for partmapper when GameData can't be found
-#- process for passing in ignored mods
 
 =begin
 #rough ideas for future design
