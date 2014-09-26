@@ -22,7 +22,7 @@ unless Dir.entries(@path).include?("GameData")
 end
 
 #read list of mods to ignore
-ignore = KerbalX::IgnoreFile.new(@path) if File.exists?(File.join([@path, "partmapper.ignore"]))
+ignore = KerbalX::IgnoreFile.new(@path) if File.exists?(File.join([@path, "ignore_mods.txt"]))
 
 #scan for Parts and transmit to KerbalX with the users auth-token
 KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
@@ -31,13 +31,14 @@ KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
   parser = KerbalX::PartParser.new @path, :associate_components => false, :ignore_mods => ignore.to_a
   puts "done"
   puts parser.parts.empty? ? "Did not find any parts, sorry!" : "Discovered #{parser.parts.keys.count} parts"   
+  break if parser.parts.empty?
   puts "\nSending data to KerbalX.com.....\n"
   kerbalx.update_knowledge_base_with parser.parts
 end
 
-puts "\n\nThis terminal will stay open for 2 minutes if you want to review the output"
+puts "\n\nThis terminal will stay open for a minute if you want to review the output"
 puts "Or you can close it now with CTRL+C"
-sleep 120
+sleep(ENV["OCRA_EXECUTABLE"] ? 60 : 2)
 
 =begin
 #rough ideas for future design

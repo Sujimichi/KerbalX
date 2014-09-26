@@ -26,6 +26,8 @@ module KerbalX
 
     def update_knowledge_base_with parts
       mods_with_parts = group_parts_by_mod parts
+      mods_with_parts ||= {}
+
       url = "#{@site}/knowledge_base/update"           
       responses = []
       
