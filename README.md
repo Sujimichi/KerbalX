@@ -45,6 +45,6 @@ To run the tests you need to unzip test_env.zip and you'll need to ask me for th
 
 
 ##exe compilation
-The PartMapper.exe is compiled using OCRA to package it up with the core ruby libs it needs to function in a windows environment which is devoid of ~joy~ Ruby.
+The PartMapper.exe is compiled using OCRA to package it up with the core ruby libs it needs to function in a windows environment which is devoid of ~~joy~~ Ruby.
     
     ocra kerbalx_part_mapper.rb --no-enc
