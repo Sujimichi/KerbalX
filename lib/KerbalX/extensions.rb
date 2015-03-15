@@ -14,12 +14,16 @@ class Array
   def split n = []
     a = self.dup
     b = []
-    while a.include?(n)
-      b << a[0..a.index(n)-1]
-      a =  a[a.index(n)+1..a.size]
-    end
-    b << a
-    b
+    if a.include?(n)
+      while a.include?(n)
+        b << a[0..a.index(n)-1]
+        a =  a[a.index(n)+1..a.size]
+      end
+      b << a
+      b[1..-1]
+    else
+      [a]
+    end    
   end
 
   def blank?
