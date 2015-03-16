@@ -16,6 +16,9 @@ require 'KerbalX/auth_token'
 #provides methods for interfacing with KerbalX.com
 require 'KerbalX/interface'
 
+#provides methods for downloading and interacting with the CKAN-meta repo
+require 'KerbalX/ckan_reader'
+
 module KerbalX
   # Your code goes here...  
   # or not as the case may be
