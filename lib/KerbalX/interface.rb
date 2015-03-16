@@ -12,8 +12,8 @@ module KerbalX
     end
 
     def initialize token, &blk
-      @site = "http://kerbalx.com"
-      #@site = "http://localhost:3000"
+      #@site = "http://kerbalx.com"
+      @site = "http://localhost:3000"
 
       @token = token
       if @token.valid?
