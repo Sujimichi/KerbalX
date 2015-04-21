@@ -1,4 +1,3 @@
-
 #INITIAL SETUP
 # clone CKAN-meta repo 
 
@@ -13,35 +12,21 @@
 #     {identifier => {:name => "human name string", :parts => [array of part names], :version => "version string" } }
 
 
-
-#It may be the case that two mods (or a mod and an extension to that mod) might contain the same part files
-#Need to identify when that happens and think of a way to handle that situation
-
-#Two ways to approach this. 
-#1) download all mods and uppack, then parse the whole unpacked dir in one go
-#2) download and parse the data for each mod 1 at a time. <---Will probably do this, and the unpack process will return 
-#   which files it unpacked and then just those will be parsed by the part mapper
-
 #TODO
 #- add list of mods to skip, ie; large mods that are known to not have parts (Astronomers packs)
 #- add a clean up process that removes extracted cfg files from the GameData folder (possibly just nukes entire folder)
 #  and removes downloaded zips (needs to be optional, but will be needed once this is running on KerbalX)
 
-=begin
-load 'CkanMetaReader.rb'
-reader = CkanMetaReader.new
-reader.read_ckan_info
 
-=end
 
 class CkanReader
   require 'json'
   require 'open-uri'
   require 'progressbar'
   require 'zip'
-  #require "KerbalX/extensions"
+  require "KerbalX/extensions" unless [].respond_to?(:split)
   
-  attr_accessor :files, :data, :mod_data, :errors, :activity_log, :verbose, :silent, :pretty_json
+  attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json
 
   def initialize args = {}
     defaults = {:dir => Dir.getwd, :activity_log => nil}
@@ -50,21 +35,52 @@ class CkanReader
     @repo = "CKAN-meta"   #name of the CKAN repo's folder
     @mod_data = {}        #store for resultant info of mods and their parts
     @errors = []          #store for tracking errors during run
-    @verbose = true       #if true then show extra warnings (ie when files in GameData are being replaced)
+    @message_log = []     #log of running messages
+    @verbose = false      #if true then show extra warnings (ie when files in GameData are being replaced)
     @silent = false       #if true then DONT show text output 
     @pretty_json = true   #if true then format JSON with whitespace and newlines
+    @halt_on_error = false
     
     load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew.
   end
 
+
+  #list of mods to ignore, these are mods that are known to not contain any parts, or if they do contain parts they conflict with or completely include other mods
+  #ie ResGen contains all of B9 so all it's parts conflict (same with VirginKalactic-NodeToggle)
+  #TODO replace with json file that is loaded at start
+  def ignore_list
+    [
+      "AJE",                                #conflict with AdvancedJetEngine and appears to have been replaced by it
+      "ResGen",                             #conflicts with B9, contains full copy of B9 and no other parts
+      "VirginKalactic-NodeToggle",          #conflicts with B9, contains full copy of B9 and no other parts
+      "KineTechAnimation",                  #conflicts with B9, contains full copy of B9 and no other parts
+      "KSPInterstellarLite",                #conflicts with KSPInterstellar, has same parts
+      "InterstellarLite090",                #conflicts with KSPInterstellar, has same parts
+      "StationPartsExpansion",              #conflicts with NearFutureProps
+      "ModularRocketSystemsLITE",           #conflicts with ModularRocketSystem (ModularRocketSystem has more parts)
+      "TACLS-Config-Stock",                 #conflicts with TACLS, has same parts
+      "NearFuturePropulsionExtras",         #conflicts with NearFuturePropulsion
+      "SpaceX-ColonialTransporter-LR",      #conflicts with SpaceX-ColonialTransporter-HD, has same parts
+      "SpaceX-ColonialTransporter-Standard",#conflicts with SpaceX-ColonialTransporter-HD, has same parts
+      "HandGliderStyleWings",               #conflicts with Hand-GliderStyleWings (same parts, same everything, chosen this one as the url also has a - in Hand-Glider)
+      "LazTekSpaceXLaunch", "LazTekSpaceXLaunch-HD", "LazTekSpaceXLaunch-LD", "SpaceX-LaunchPack-HD", "SpaceX-LaunchPack-LR",
+      #all above line conflicts with SpaceX-LaunchPack-Standard (SpaceX-LaunchPack-Standard has more parts and seems to be more current)
+      "LazTekSpaceXHistoric", "LazTekSpaceXHistoric-HD", "LazTekSpaceXHistoric-LD", "SpaceX-HistoricArchive-LR",
+      #all the above line conflicts with SpaceX-HistoricArchive-Standard all have the same parts
+      "LazTekSpaceXExploration", "LazTekSpaceXExploration-HD", "LazTekSpaceXExploration-LD", "SpaceX-ExplorationExtension-HD", "SpaceX-ExplorationExtension-LR",
+      #all the above line conflicts with SpaceX-ExplorationExtension-Standard all have the same parts
+      ["AstronomersPack-DistantObjectEnhancement", "AstronomersPack-PlanetShine", "AstronomersPack-Clouds-Low", "AstronomersPack-Snow", "AstronomersPack-SurfaceGlow", "AstronomersPack", "AstronomersPack-Eve-Jool-Clouds-8K", "AstronomersPack-Eve-Jool-Clouds-4K", "AstronomersPack-Sandstorms", "AstronomersPack-Clouds-Medium", "AstronomersPack-Auroras-4K", "AstronomersPack-Auroras-8K", "AstronomersPack-Clouds-High", "AstronomersPack-Lightning", "AstronomersPack-Eve-Jool-Clouds-2K", "AstronomersPack-AtmosphericScattering"] 
+    ].flatten
+  end
 
   ##~~Fetch, Update and Read CKAN-meta repo~~##
   #methods to handle fetching and updating CKAN repo and
   #parsing it to produce @data, a hash of the required data
 
   #fetch the awesome CKAN-meta repo 
-  #TODO block this is repo already exists
   def clone_repo
+    return update_repo if Dir.exists?(File.join([@dir, @repo]))
+    puts "Cloning CKAN-meta repo into #{@dir}"
     cur_dir = Dir.getwd
     Dir.chdir(@dir)
     `git clone https://github.com/KSP-CKAN/CKAN-meta.git`
@@ -74,9 +90,14 @@ class CkanReader
   #update CKAN-meta repo
   #TODO call clone_repo if repo does not exist
   def update_repo
+    return clone_repo unless Dir.exists?(File.join([@dir, @repo]))
+    puts "Updating CKAN-meta repo in #{File.join([@dir, @repo])}"
     Dir.chdir(File.join([@dir, @repo]))
     `git pull origin master`
     Dir.chdir(@dir)
+    @files = nil
+    @data = nil
+    return nil
   end
 
   #find all the .ckan files in the CKAN-meta repo
@@ -91,7 +112,7 @@ class CkanReader
     @data = files.map do |file|
       begin
         data = JSON.parse(File.open(file, "r"){|f| f.readlines}.join("\n")) #Read file and parse contents with JSON
-        {:identifier => data["identifier"], :name => data["name"], :url => data["download"], :version => data["version"]} #return required values
+        {:identifier => data["identifier"], :name => data["name"], :url => data["download"], :version => data["version"], :status => data["release_status"]} #return required values
       rescue => e
         log_error [file, "ERROR: failed to find or parse file\n#{e}"]
         {} #in case of error return an empty hash
@@ -104,29 +125,60 @@ class CkanReader
 
   ##~~Main Processing Methods~~##
 
+  #Main Method - This is the primary entry point method. It ensures the CKAN-meta repo has been parsed and @data assembled
+  #then itterates over a given subset of identifiers (all to_process if none given) and passes each one to process_identifier
+  #which in turn downloads, unpacks and reads out part name info from the .cfg files.
+  def process subset = to_process, args = {}
+    all_mods(subset){|identifier, reader| reader.process_identifier(identifier, args) }
+    resolve_conflicts #remove duplicate instances of parts, ensure each part belongs to just one mod.
+    return nil
+  end
+
+  #return array of identifiers that need to be processed
+  #returns identifiers who's latest version is not tracked in the @activity_log
+  def to_process
+    all_mods{|id,r| r.latest_version_for(id)}.map{|m| [m[:identifier], m[:version]]      
+    }.select{|id,v| not already_logged? id, v}.map{|id, v| id}
+  end
+
   #for a given identifier, download the latest version zip, unpack the cfg files and read part names
   #returns a hash with data for the identifier {identifier => {:parts => part_name_Array, :name => String, :version => String}}
-  def process_identifier identifier
+  def process_identifier identifier, args = {}
+    args = {:force => false}.merge(args)
     data = latest_version_for identifier
 
-    #stop process if the identifier and version have already been logged.
-    return msg "#{data[:identifier]} #{data[:version]} has already been processed" if already_logged? data[:identifier], data[:version]
+    #stop process if the identifier and version have already been logged, unless :force => true is given in args
+    return msg "#{data[:identifier]} #{data[:version]} has already been processed" if already_logged?(data[:identifier], data[:version]) && !args[:force]
+    
+    skip = false
+    skip = "deprectaed" if data[:version].downcase.match(/deprecated/)
+    skip = "non-stable-release" if data[:status] && !data[:status].downcase.eql?("stable")
+    skip = "on ignore list" if ignore_list.include?(data[:identifier])
 
-    #I love Ruby!! The identifier key is passed to downloaded (alias for download) which downloads the zip unless it's already present
-    #either way download returns the identifier data and passes that to unpacked (alias for unpack) which extracts just the .cfg files
-    #unpack returns an Array of paths to the cfg files which are passed to read_parts_from which scans them and returns an array of part names 
-    parts = read_parts_from unpacked downloaded identifier
+    if skip.eql?(false)
+
+      #I love Ruby!! The identifier key is passed to downloaded (alias for download) which downloads the zip unless it's already present
+      #either way download returns the identifier data and passes that to unpacked (alias for unpack) which extracts just the .cfg files
+      #unpack returns an Array of paths to the cfg files which are passed to read_parts_from which scans them and returns an array of part names       
+      parts = read_parts_from unpacked downloaded identifier 
+      root_dir = @root_dirs.group_by{|i| i}.values.max_by(&:size) #@root_dirs is populated by read_parts_from with the root dir inside GameData for each cfg
+      root_dir = root_dir.first if root_dir
+      #getting the most common root_dir is the best guess at the name PartMapper will have found for a mod and therefore what it will be called on KerbalX
+
+      #assemble hash of parts and other info for the identifier
+      mod_info = {:name => data[:name], :root_folder => root_dir, :version => data[:version], :url => data[:url], :parts => (parts || []) }
+      @mod_data.merge!(identifier => mod_info) unless parts.empty? #merge the info about the identifier with @mod_data UNLESS it has no parts
+
+      msg "Complete; #{parts.size} part names discovered in #{data[:identifier]} #{data[:version]}\n\n"
+    else
+      msg "Skipped #{data[:identifier]}; #{skip}\n"
+    end
     log_activity identifier, {data[:version] => {:processed_on => Time.now}}
-
-    msg "Complete; #{parts.size} part names discovered in #{data[:identifier]} #{data[:version]}\n\n"
-
-    #assemble hash of parts and other info for the identifier
-    data = {identifier => {:name => data[:name], :version => data[:version], :parts => parts}}
-    @mod_data.merge!(data)
+    
     data
   end
 
-  #takes a block to be performed for all mods, passes identifier and self into the block
+  #takes a block to be performed for all mods, passes -identifier and self into the block
   #For Example, print all available versions 
   # reader.all_mods{|id, r| msg "#{id} - #{r.versions_for(id)}" }
   #can also be given a subset of identifiers to work on rather than entire set of mods
@@ -143,17 +195,11 @@ class CkanReader
     end.compact
   end
 
-  def process subset = []
-    #subset = ["SCANsat", "Kethane", "BahamutoDynamicsPartsPack", "B9", "InfernalRobotics", "RemoteTech"]
-    #subset = to_process
-    all_mods(subset) do |identifier, reader|
-      reader.process_identifier(identifier)
-    end
-    return nil
-  end
 
 
-  ##~~Helper Methods~~##
+  ##~~Mod Data Handlers~~##
+  #methods to handled fetching and unpacking a mod
+  #and extracting part name info from it
 
   #Get the latest data (name, version, download_url) for a given identifier
   def latest_version_for identifier
@@ -162,41 +208,8 @@ class CkanReader
     return log_error "#{identifier} was not found in ckan data" unless mod    
     #sort by version and return last element. see comments on sortable_version method for sort process.
     mod.sort_by{|m| sortable_version m[:version] }.last
+    #.select{|m| not m[:version].downcase.eql?("deprecated")}.last #ignore deprecated versions
   end
-
-  #Helper method, not used in main logic, just for doing a quick lookup of available versions for given identifier
-  def versions_for identifier
-    read_ckan_info_from unless @data
-    @data[identifier].sort_by{|m| sortable_version m[:version] }.map{|v| v[:version]}
-  end
-
-  #simple lookup for partial identifier, returns any identifier keys that contain the given value
-  def find mod_name
-    read_ckan_info_from unless @data
-    @data.keys.select{|k| k.downcase.include?(mod_name.downcase)}
-  end
-
-  #check if given identifier is present and if it has an entry for given version
-  def already_logged? identifier, version
-    @activity_log.has_key?(identifier) && @activity_log[identifier].has_key?(version)
-  end
-
-  #return array of identifiers that need to be processed
-  def to_process
-    all_mods{|m,r| r.latest_version_for(m)}.map{|m| 
-      [m[:identifier], m[:version]]
-    }.select{|id,v| not already_logged? id, v}.map{|id, v| id}
-  end
-
-  #write @mod_data to disk as json string
-  def save_mod_data
-    File.open(File.join([@dir,"mod_data.json"]), "w"){|f| f.write make_json(@mod_data) }      
-  end
-
-
-  ##~~Mod Data Handlers~~##
-  #methods to handled fetching and unpacking a mod
-  #and extracting part name info from it
 
   #takes a hash with the keys :url, :identifier and :version and downloads the zip from the url and stores it accorder to :identifier and :version 
   #OR when given a string (an identifier) will lookup the latest version from CKAN-meta data and then download and store that.
@@ -207,7 +220,7 @@ class CkanReader
 
     Dir.mkdir(temp_dir) unless Dir.entries(@dir).include? "temp" #create temp dir for downloading zips into 
 
-    if File.exists?(zip_path) #don't download if zip is already present
+    if File.exists?(zip_path) && !File.zero?(zip_path) #don't download if zip is already present
       msg "#{data[:identifier]}-#{data[:version]}.zip already downloaded"
       return identifier_hash
     else
@@ -215,6 +228,10 @@ class CkanReader
       msg "Downloading #{data[:identifier]} version: #{data[:version]}"
       pbar = nil
       open(zip_path, 'wb'){|file| file.print open(data[:url], progress_bar(pbar)).read  }
+      if File.zero?(zip_path)
+        File.delete(zip_path)
+        log_error "download of #{data[:url]} failed, zip was 0 bytes"
+      end
       msg "\n"
       return identifier_hash
     end
@@ -254,20 +271,164 @@ class CkanReader
   #read each cfg and determine if it contains PART info and return the names of the parts found
   #based on the logic from KerbalX::PartParser so has some concepts that may now be legacy (ie multiple parts in single .cfg file)
   def read_parts_from cfg_paths
+    @root_dirs = []
     cfg_paths.map do |cfg_path|
-      cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines} #open the cfg file using Unicode BOM to deal with some encoding present in cfg files.
-      first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? }.first #find first line that isn't comments or empty space
+
+      begin
+        cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines} #open the cfg file using Unicode BOM to deal with some encoding present in cfg files.
+      rescue
+        log_error "failed to read #{cfg_path}"
+        next #skip this file 
+      end
+      
+      first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? rescue false }.first #find first line that isn't comments or empty space
+      #the rescue false allows this to ignore lines that fail. typically this is due to an "invalid byte sequence in UTF-8" error
+      #and that *usually* is only an issue for description lines which we don't care about.
+      
+      if first_significant_line.nil?
+        log_error "no significant line found in: #{cfg_path}" 
+        next
+      end
+      
       if first_significant_line.match(/^PART/)        
+
+        #find the root folder inside GameData that the cfg is in (this will be the name that KerbalX knows the mod as, due to the way the PartMapper tool works)
+        @root_dirs << cfg_path.split("GameData/").last.split("/").first 
+
         cfg.split(first_significant_line).map do |sub_component| #this deals with the case of a cfg file containing multiple parts
           name = sub_component.select{|line| line.include?("name =")}.first #find the first instance of attribute "name" and return value
           name = name.sub("name = ","").strip.sub("@",'').chomp unless name.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
           name.gsub("_",".") #part names need to be as they appear in craft files, '_' is used in the cfg but is replaced with '.' in craft files
         end
       end
+      
     end.flatten.compact
   end
 
+  #Resolve situation where a part is found to be present in more than one mod.
+  #The resolution is simple, the part is assigned to the first mod in the list and removed 
+  #from the others. This may be overly simple, but I think it will deal with most of the 
+  #situations. In most cases conflicting parts come from mods by the same author
+  def resolve_conflicts
+    conflict_map = conflicting_parts
+    return msg "No conflicts to resolve" if conflict_map.empty?
+    msg "There are #{conflict_map.keys.size} conflicting parts to resolve"
+    conflict_map.each do |part, conflicting_mods|
+      winning_mod = conflicting_mods.first      
+      conflicting_mods.delete(winning_mod)
+      msg "Resolving #{part}; assigning it to #{winning_mod}, removing it from #{conflicting_mods.join(", ")}"
+      conflicting_mods.each{|mod| @mod_data[mod][:parts].delete(part) }
+    end
 
+    @mod_data.select{|m,d| d[:parts].empty?}.each{|id,v| 
+      msg "removing #{id} as it now has no parts"
+      @mod_data.delete(id)
+    }
+    return nil
+  end
+
+  ##~~Helper Methods~~##
+
+  #Helper method, not used in main logic, just for doing a quick lookup of available versions for given identifier
+  def versions_for identifier
+    read_ckan_info_from unless @data
+    @data[identifier].sort_by{|m| sortable_version m[:version] }.map{|v| v[:version]}
+  end
+
+  #simple lookup for partial identifier, returns any identifier keys that contain the given value
+  def find mod_name
+    read_ckan_info_from unless @data
+    @data.keys.select{|k| k.downcase.include?(mod_name.downcase)}
+  end
+
+  #check if given identifier is present and if it has an entry for given version
+  def already_logged? identifier, version
+    @activity_log.has_key?(identifier) && @activity_log[identifier].has_key?(version)
+  end
+
+  def show_errors type = :all
+    errs = @errors
+    errs = errs.select{|e| e.match(/^FAILED/)}   if type.eql?(:all) || type.eql?(:main)
+    errs = errs.select{|e| !e.match(/^WARNING/)} if type.eql?(:not_warnings)    
+    errs.each{|err| puts "#{err}\n\n"}
+    return nil
+  end
+
+  def reset
+    @mod_data = {}
+    @activity_log = {}
+    @errors = []
+    @message_log = []
+  end
+
+  #find out if any parts exist in more than one mod.
+  #returns a hash of {partname => [array_of_mods_that_contain_that_part]}
+  def conflicting_parts
+    all_parts = @mod_data.map{|k,v| v[:parts]}.flatten.uniq
+    conflict_map = all_parts.map do |p|
+      {p => @mod_data.select{|k,v| v[:parts].include?(p)}.map{|k,v| k} }
+    end.select{|d| d.values.flatten.size > 1}.inject{|i,j| i.merge(j)}
+    conflict_map || {} #return empty hash if there are no conficts
+  end
+
+  def show_conflicts
+    conflict_map = conflicting_parts
+    return puts "There are no conflicts" if conflict_map.empty?
+    puts conflict_map.map{|k,v| "#{k} => #{v}"}
+  end
+
+  def compaire mod, args = {}
+    moda = mod
+    modb = args[:with]
+    a_minus_b = @mod_data[moda][:parts] - @mod_data[modb][:parts]
+    b_minus_a = @mod_data[modb][:parts] - @mod_data[moda][:parts]
+
+    if a_minus_b.empty? && b_minus_a.empty?
+      puts "both contain the same parts"
+    else
+      if b_minus_a.empty? && !a_minus_b.empty?
+        puts "#{moda} contains all the parts from #{modb} and has #{a_minus_b.size} more parts"
+        puts a_minus_b.inspect
+      end
+      if a_minus_b.empty? && !b_minus_a.empty?
+        puts "#{modb} contains all the parts from #{moda} and has #{b_minus_a.size} more parts"
+        puts b_minus_a.inspect
+      end
+      if !a_minus_b.empty? && !b_minus_a.empty?
+        shared = @mod_data[moda][:parts] - (a_minus_b)
+        puts "#{modb} shares #{shared.size} pars with #{moda}"
+        puts shared.inspect      
+      end
+    end
+  end
+
+
+  def json_data
+    make_json(@mod_data)
+  end
+
+  #write @mod_data to disk as json string
+  def save_mod_data
+    File.open(File.join([@dir,"mod_data.json"]), "w"){|f| f.write make_json(@mod_data) }      
+  end
+
+  #Load mod_data from file and add a poor-man's HashWithIndifferentAccess
+  def load_mod_data
+    begin
+      data = JSON.parse(File.open(File.join([@dir,"mod_data.json"]), "r"){|f| f.readlines }.join)
+    rescue
+      msg "No mod_data file to load"
+    end
+    default_proc = proc do |h, k|
+      case k
+        when String then sym = k.to_sym; h[sym] if h.key?(sym)
+        when Symbol then str = k.to_s; h[str] if h.key?(str)
+      end
+    end 
+    data = data.map{|k,v| v.default_proc = default_proc; {k => v}}.inject{|i,j| i.merge(j)}
+    data.default_proc = default_proc
+    @mod_data = data
+  end
 
   private
 
@@ -324,10 +485,9 @@ class CkanReader
     File.open(File.join([@dir, "activity.log"]), "w"){|f| f.write make_json(@activity_log) }      
   end
 
-
-
   #Record an error and if @verbose is true print to screen as they occur
   def log_error error
+    raise error.inspect if @halt_on_error
     msg [error].flatten.join("\n") unless @silent
     @errors << error
     return nil
@@ -337,9 +497,13 @@ class CkanReader
   #all output should use this rather than using puts directly
   #so text output can be silenced
   def msg string
+    @message_log << string
     puts string unless @silent
   end
 
+  #returns a JSON strong for the given object
+  #if @pretty_json is set to true then it's formatted for human readability
+  #otherwise it's compact
   def make_json object
     if @pretty_json
       JSON.pretty_generate(object)
@@ -349,3 +513,5 @@ class CkanReader
   end
 
 end
+
+
