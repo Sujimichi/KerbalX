@@ -40,6 +40,7 @@ class CkanReader
     @silent = false       #if true then DONT show text output 
     @pretty_json = true   #if true then format JSON with whitespace and newlines
     @halt_on_error = false
+    @mod_dir= "ModArchive"#Folder were mod zips are downloaded into
     
     load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew.
   end
@@ -163,11 +164,15 @@ class CkanReader
       parts = read_parts_from unpacked downloaded identifier 
       root_dir = @root_dirs.group_by{|i| i}.values.max_by(&:size) #@root_dirs is populated by read_parts_from with the root dir inside GameData for each cfg
       root_dir = root_dir.first if root_dir
+      if root_dir.blank?
+        msg "Assumption: root folder not found for #{identifier}, using identifier as root_dir"
+        root_dir = identifier
+      end
       #getting the most common root_dir is the best guess at the name PartMapper will have found for a mod and therefore what it will be called on KerbalX
 
       #assemble hash of parts and other info for the identifier
       mod_info = {:name => data[:name], :root_folder => root_dir, :version => data[:version], :url => data[:url], :parts => (parts || []) }
-      @mod_data.merge!(identifier => mod_info) unless parts.empty? #merge the info about the identifier with @mod_data UNLESS it has no parts
+      @mod_data.merge!(identifier => mod_info) #unless parts.empty? #merge the info about the identifier with @mod_data UNLESS it has no parts
 
       msg "Complete; #{parts.size} part names discovered in #{data[:identifier]} #{data[:version]}\n\n"
     else
@@ -189,8 +194,13 @@ class CkanReader
       begin
         yield(indentifier, self)
       rescue => e
-        log_error "FAILED ON: #{indentifier}\n#{e}"
+        log_error "FAILED ON: #{indentifier}\n#{e}\n"
+        begin
+          remove_downloads_for indentifier, :just => data[:version]
+        rescue
+        end
         nil
+        msg "\n"
       end
     end.compact
   end
@@ -215,14 +225,14 @@ class CkanReader
   #OR when given a string (an identifier) will lookup the latest version from CKAN-meta data and then download and store that.
   def download identifier_hash
     data = identifier_hash.is_a?(String) ? latest_version_for(identifier_hash) : identifier_hash #select latest version from given identifier or use given identifier_hash
-    temp_dir = File.join([@dir, "temp"]) 
+    temp_dir = File.join([@dir, @mod_dir]) 
     zip_path = File.join([temp_dir, "#{data[:identifier]}-#{data[:version]}.zip"]) 
 
-    Dir.mkdir(temp_dir) unless Dir.entries(@dir).include? "temp" #create temp dir for downloading zips into 
+
+    Dir.mkdir(temp_dir) unless Dir.entries(@dir).include? @mod_dir #create dir for downloading zips into 
 
     if File.exists?(zip_path) && !File.zero?(zip_path) #don't download if zip is already present
       msg "#{data[:identifier]}-#{data[:version]}.zip already downloaded"
-      return identifier_hash
     else
       #download url and store as a zip named according to indentifier
       msg "Downloading #{data[:identifier]} version: #{data[:version]}"
@@ -232,11 +242,36 @@ class CkanReader
         File.delete(zip_path)
         log_error "download of #{data[:url]} failed, zip was 0 bytes"
       end
-      msg "\n"
-      return identifier_hash
     end
+    remove_downloads_for data, :keep => data[:version]
+    return identifier_hash
   end
   alias downloaded download
+
+  def remove_downloads_for identifier_hash, args = {}
+    data = identifier_hash.is_a?(String) ? latest_version_for(identifier_hash) : identifier_hash #select latest version from given identifier or use given identifier_hash
+    args[:keep] ||= [] #ensure :keep is not nil
+    args[:keep] = [args[:keep]].flatten #ensure keep is an array.
+    
+    temp_dir = File.join([@dir, @mod_dir]) 
+
+    previous_versions = @data[data[:identifier]].map{|i| i[:version]} - args[:keep]
+    if args[:just]
+      previous_versions = [args[:just]]
+    end
+    to_remove = previous_versions.map do |previous_version|
+      File.join([temp_dir, "#{data[:identifier]}-#{previous_version}.zip"]) 
+    end.select do |path|
+      File.exists?(path) && !File.zero?(path)
+    end
+    unless to_remove.empty?
+      msg "Removing downloads:"
+      to_remove.each do |old_path|
+        msg "\tremoving #{old_path}"
+        File.delete(old_path)
+      end
+    end
+  end
 
   #takes a hash with :identifier and :version keys or an identifier string (in which case the latest version is used. 
   #opens a corresponding zip (which should have been downloaded by self.download) and unpacks just the .cfg files into a GameData folder in @dir
@@ -246,7 +281,7 @@ class CkanReader
     zip_name = "#{data[:identifier]}-#{data[:version]}.zip"
     msg "Unpacking #{zip_name}"
     unpacked_cfg_paths = []
-    Zip::File.open(File.join([@dir, "temp", zip_name])) do |zip| 
+    Zip::File.open(File.join([@dir, @mod_dir, zip_name])) do |zip| 
       zip.each do |entry| 
         if entry.name.match(/.cfg$/)
           path = entry.name
@@ -320,10 +355,10 @@ class CkanReader
       conflicting_mods.each{|mod| @mod_data[mod][:parts].delete(part) }
     end
 
-    @mod_data.select{|m,d| d[:parts].empty?}.each{|id,v| 
-      msg "removing #{id} as it now has no parts"
-      @mod_data.delete(id)
-    }
+    #@mod_data.select{|m,d| d[:parts].empty?}.each{|id,v| 
+    #  msg "removing #{id} as it now has no parts"
+    #  @mod_data.delete(id)
+    #}
     return nil
   end
 
@@ -418,16 +453,19 @@ class CkanReader
       data = JSON.parse(File.open(File.join([@dir,"mod_data.json"]), "r"){|f| f.readlines }.join)
     rescue
       msg "No mod_data file to load"
+      
     end
-    default_proc = proc do |h, k|
-      case k
-        when String then sym = k.to_sym; h[sym] if h.key?(sym)
-        when Symbol then str = k.to_s; h[str] if h.key?(str)
-      end
-    end 
-    data = data.map{|k,v| v.default_proc = default_proc; {k => v}}.inject{|i,j| i.merge(j)}
-    data.default_proc = default_proc
-    @mod_data = data
+    if data
+      default_proc = proc do |h, k|
+        case k
+          when String then sym = k.to_sym; h[sym] if h.key?(sym)
+          when Symbol then str = k.to_s; h[str] if h.key?(str)
+        end
+      end 
+      data = data.map{|k,v| v.default_proc = default_proc; {k => v}}.inject{|i,j| i.merge(j)}
+      data.default_proc = default_proc
+      @mod_data = data
+    end
   end
 
   private
