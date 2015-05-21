@@ -16,24 +16,29 @@ puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
 #@path = Dir.getwd
 @path = "/home/sujimichi/temp"
+@path = "/home/sujimichi/coding/lab/KerbalX-CKAN"
 
 
 KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
 
   ckan_reader = CkanReader.new :dir => @path
-  #ckan_reader.update_repo #or clone determining which not implmented yet, manual process atm
+  ckan_reader.update_repo #or clone determining which not implmented yet, manual process atm
+
+  ckan_reader.load_mod_data #load mod data from previous runs
   
-
-  #to_process = ckan_reader.to_process
-  to_process = ["SCANsat", "Kethane", "BahamutoDynamicsPartsPack", "B9", "B9AerospaceProceduralParts", "InfernalRobotics", "RemoteTech"]
-  to_process << ["KarbonitePlus", "Karbonite", "USI-FTT", "USI-ART", "USI-EXP", "USI-SRV", "CommunityResourcePack", "USITools", "AlcubierreStandalone"]
-  to_process << "HullcamVDS"
-  to_process.flatten!
-  ckan_reader.activity_log = {}
-
-  ckan_reader.process to_process
+  ckan_reader.process #download new/updated mods and read part info
+  ckan_reader.save_mod_data #write current mod data to file
  
+  #send data to KerbalX (using non-indented json)
   ckan_reader.pretty_json = false
-  kerbalx.update_knowledge_base_with_ckan_data ckan_reader.json_data
+  response = kerbalx.update_knowledge_base_with_ckan_data ckan_reader.json_data
 
+  
+  effected_craft = response["effected_craft_ids"]
+  effected_craft = effected_craft.split(",").map{|i| i.to_i}
+  unless effected_craft.blank?
+    puts "Updating mod info on #{effected_craft.size} craft"
+    kerbalx.update_craft effected_craft
+  end
+  
 end

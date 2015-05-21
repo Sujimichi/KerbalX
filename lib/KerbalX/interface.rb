@@ -47,6 +47,14 @@ module KerbalX
       print "\nsending CKAN data..."
       response = transmit(url, :ckan_data => ckan_data)      
       puts response.body
+      return JSON.parse(response.body)      
+    end
+
+    def update_craft craft_ids
+      url = "#{@site}/knowledge_base/update"           
+      print "\nUpdating Craft..."
+      response = transmit(url, :update_craft => craft_ids.to_json)
+      puts response.body
     end
 
     def transmit url, data
@@ -92,6 +100,7 @@ module KerbalX
     def send_data url, data = {}
       uri = URI.parse(url)
       http = Net::HTTP.new(uri.host, uri.port)
+      http.read_timeout = 10000
       request = Net::HTTP::Post.new(uri.request_uri)
 
       data.merge! @token.to_hash
