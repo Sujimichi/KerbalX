@@ -12,8 +12,9 @@ module KerbalX
     end
 
     def initialize token, &blk
-      #@site = "http://kerbalx.com"
-      @site = "http://localhost:4000"
+      @site = "http://kerbalx.com"
+      #@site = "http://localhost:3000"      
+      #@site = "http://kerbalx-stage.herokuapp.com"
 
       @token = token
       if @token.valid?
@@ -40,20 +41,11 @@ module KerbalX
 
       show_summary responses
     end
-
-        
+      
     def update_knowledge_base_with_ckan_data ckan_data
       url = "#{@site}/knowledge_base/update"           
-      print "\nsending CKAN data..."
+      print "\nsending CKAN data to #{@site}..."
       response = transmit(url, :ckan_data => ckan_data)      
-      puts response.body
-      return JSON.parse(response.body)      
-    end
-
-    def update_craft craft_ids
-      url = "#{@site}/knowledge_base/update"           
-      print "\nUpdating Craft..."
-      response = transmit(url, :update_craft => craft_ids.to_json)
       puts response.body
     end
 
@@ -100,9 +92,8 @@ module KerbalX
     def send_data url, data = {}
       uri = URI.parse(url)
       http = Net::HTTP.new(uri.host, uri.port)
-      http.read_timeout = 10000
       request = Net::HTTP::Post.new(uri.request_uri)
-
+      http.read_timeout = 10000
       data.merge! @token.to_hash
       data.merge! :version => KerbalX::VERSION
 

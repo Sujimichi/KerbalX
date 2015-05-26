@@ -68,10 +68,11 @@ module KerbalX
       @ignored_cfgs = []
       part_info = part_cfgs.map do |cfg_path|
 
-        #read .cfg file as r:bom|utf-8
-        cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines}
       
         begin
+          #read .cfg file as r:bom|utf-8
+          cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines}
+
           next if cfg_path.include?("mechjeb_settings") #not all .cfg files are part files, some are settings, this ignores mechjeb settings (which are numerous). 
           next if cfg_path.match(/^GameData\//) && cfg_path.split("/").size.eql?(2) #ignore cfg files in the root of GameData
           next if cfg_path.match(/^saves\//) #ignore cfg files in saves folder

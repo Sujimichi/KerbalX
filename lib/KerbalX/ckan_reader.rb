@@ -169,6 +169,11 @@ class CkanReader
         root_dir = identifier
       end
       #getting the most common root_dir is the best guess at the name PartMapper will have found for a mod and therefore what it will be called on KerbalX
+    
+      #ensure parts are all uniq and log warning if any duplicate parts are removed
+      psize = parts.size
+      parts.uniq!
+      log_error "WARNING: Duplicate Parts in #{data[:identifier]}" unless parts.size == psize
 
       #assemble hash of parts and other info for the identifier
       mod_info = {:name => data[:name], :root_folder => root_dir, :version => data[:version], :url => data[:url], :parts => (parts || []) }
@@ -383,7 +388,7 @@ class CkanReader
 
   def show_errors type = :all
     errs = @errors
-    errs = errs.select{|e| e.match(/^FAILED/)}   if type.eql?(:all) || type.eql?(:main)
+    errs = errs.select{|e| e.match(/^FAILED/)}   if type.eql?(:main)
     errs = errs.select{|e| !e.match(/^WARNING/)} if type.eql?(:not_warnings)    
     errs.each{|err| puts "#{err}\n\n"}
     return nil
