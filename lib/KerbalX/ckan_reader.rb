@@ -23,7 +23,7 @@ class CkanReader
   require 'json'
   require 'open-uri'
   require 'progressbar'
-  require 'zip'
+  require 'zip/zip'
   require "KerbalX/extensions" unless [].respond_to?(:split)
   
   attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json
@@ -286,7 +286,7 @@ class CkanReader
     zip_name = "#{data[:identifier]}-#{data[:version]}.zip"
     msg "Unpacking #{zip_name}"
     unpacked_cfg_paths = []
-    Zip::File.open(File.join([@dir, @mod_dir, zip_name])) do |zip| 
+    Zip::ZipFile.open(File.join([@dir, @mod_dir, zip_name])) do |zip| 
       zip.each do |entry| 
         if entry.name.match(/.cfg$/)
           path = entry.name

@@ -22,4 +22,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake",       '~> 10.3', '>= 10.3.2'
   spec.add_development_dependency "rspec",      '~> 3.1', '>= 3.1.0'
   spec.add_development_dependency "guard-rspec",'~> 4.3', '>= 4.3.1'
+  spec.add_development_dependency "progressbar",'>= 0.21.0'
+  spec.add_development_dependency "rubyzip",    '>= 0.9.9'
+  
 end
