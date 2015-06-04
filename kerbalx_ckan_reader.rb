@@ -14,9 +14,9 @@ require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ckan_reader")
 
 puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
-#@path = Dir.getwd
+@path = Dir.getwd
 #@path = "/home/sujimichi/temp"
-@path = "/home/sujimichi/coding/lab/KerbalX-CKAN"
+#@path = "/home/sujimichi/coding/lab/KerbalX-CKAN"
 
 
 KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
