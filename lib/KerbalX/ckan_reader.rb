@@ -89,7 +89,6 @@ class CkanReader
   end
 
   #update CKAN-meta repo
-  #TODO call clone_repo if repo does not exist
   def update_repo
     return clone_repo unless Dir.exists?(File.join([@dir, @repo]))
     puts "Updating CKAN-meta repo in #{File.join([@dir, @repo])}"
@@ -288,7 +287,7 @@ class CkanReader
     unpacked_cfg_paths = []
     Zip::ZipFile.open(File.join([@dir, @mod_dir, zip_name])) do |zip| 
       zip.each do |entry| 
-        if entry.name.match(/.cfg$/)
+        if entry && entry.name.match(/.cfg$/)
           path = entry.name
           path = File.join(["GameData", path]) unless path.match(/^GameData/)        
           path = File.join([@dir, path])

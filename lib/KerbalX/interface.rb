@@ -12,9 +12,7 @@ module KerbalX
     end
 
     def initialize token, &blk
-      @site = "http://kerbalx.com"
-      #@site = "http://localhost:3000"      
-      #@site = "http://kerbalx-stage.herokuapp.com"
+      @site = KerablX::Config[:remote_address]    
 
       @token = token
       if @token.valid?

@@ -3,6 +3,7 @@
 
 #require 'KerbalX'
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "version")      #version info
+require File.join(File.dirname(__FILE__), "lib", "KerbalX", "config")       #config stuff
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "extensions")   #adds some rails methods (ie .blank?) to core classes (String, Array and NilClass).
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "part_parser")  #main part reading logic
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "logger")       #error logger
@@ -14,15 +15,13 @@ require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ckan_reader")
 
 puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
-@path = Dir.getwd
-#@path = "/home/sujimichi/temp"
-#@path = "/home/sujimichi/coding/lab/KerbalX-CKAN"
+@path = KerbalX::Config[:ckan_archive] || Dir.getwd
 
 
 KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
 
   ckan_reader = CkanReader.new :dir => @path
-  ckan_reader.update_repo #or clone determining which not implmented yet, manual process atm
+  ckan_reader.update_repo 
 
   ckan_reader.load_mod_data #load mod data from previous runs
   

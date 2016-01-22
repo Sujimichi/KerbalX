@@ -1,6 +1,7 @@
 #This is the script which is compiled into a .exe by OCRA for use in a windows environment that is devoid of ~joy~ Ruby.
 
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "version")      #version info
+require File.join(File.dirname(__FILE__), "lib", "KerbalX", "config")       #config stuff
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "extensions")   #adds some rails methods (ie .blank?) to core classes (String, Array and NilClass).
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "part_parser")  #main part reading logic
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "logger")       #error logger
@@ -11,13 +12,7 @@ require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ignore_file")  #rea
 
 puts "\nPartMapper for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
-@path = Dir.getwd
-#@path = "/home/sujimichi/KSP/KSPv0.24-Stock"
-#@path = "/home/sujimichi/KSP/KSPv0.24.2-Mod"
-#@path = "/home/sujimichi/KSP/KSPv0.23.0-Mod"
-#@path = "/home/sujimichi/KSP/KSPv0.90-Mod"
-#@path = "/home/sujimichi/temp"
-#@path = "/home/sujimichi/coding/lab/KerbalX-CKAN"
+@path = KerbalX::Config[:KSP_install_dir] || Dir.getwd
 
 #raise error when GameData is not found
 unless Dir.entries(@path).include?("GameData")
