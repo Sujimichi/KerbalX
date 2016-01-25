@@ -27,7 +27,7 @@ puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
 KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
 
-  ckan_reader = CkanReader.new :dir => @path, :interface => kerbalx
+  ckan_reader = KerbalX::CkanReader.new :dir => @path, :interface => kerbalx
   ckan_reader.update_repo 
 
   ckan_reader.load_mod_data #load mod data from previous runs

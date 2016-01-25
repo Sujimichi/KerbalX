@@ -15,7 +15,8 @@ describe KerbalX::Interface do
 
   describe "group_parts_by_mod" do 
     before(:each) do  
-      @interface = KerbalX::Interface.new(@token)
+      site_url = "http://localhost:3000"
+      @interface = KerbalX::Interface.new(site_url, @token)
       @parts = {
         "this_part" => {:mod => "mod1", :other_data => "stuff"},
         "that_part" => {:mod => "mod2", :other_data => "stuff"},

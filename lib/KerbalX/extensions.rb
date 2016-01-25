@@ -7,8 +7,9 @@
 class HashWithIndifferentAccess < Hash
 end
 
-#Add split and .blank? to array
+#extensions for Array
 class Array
+
   #splits an array on a given element
   #ie [1,2,3,4,5].split(3) => [[1, 2], [4, 5]] 
   def split n = []
@@ -18,21 +19,52 @@ class Array
       while a.include?(n)
         b << a[0..a.index(n)-1]
         a =  a[a.index(n)+1..a.size]
-      end
+      end    
       b << a
-      b[1..-1]
+      b
     else
       [a]
     end    
   end
 
+  #add .blank? to Array
   def blank?
     self.nil? || self.empty?
   end
+
+  def sort_by_version    
+    puts "not used"
+    self.sort_by{ |version_number|
+      version_number = version_number.dup.downcase
+      version_number.gsub!("-","")
+      version_number = "alpha" + version_number.gsub("alpha", "") if version_number.include?("alpha")
+      version_number = "beta"  + version_number.gsub("beta",  "") if version_number.include?("beta")
+      version_number = "v" + version_number unless version_number.match(/^v/)
+
+      version_number.split(".").map{|component|   #split the version number by '.' -> version components
+        component.split(/(\d+)/).map{|s|          #split each version component into alphas and numerics ie "v10" -> ["v", "10"] or "5-pre" -> ["5", "-pre"]
+          (!!Float(s) rescue false) ? s.to_i : s  #convert strings that contain numerical values into Floats, otherwise remain as strings
+        }
+      }            
+    }
+  end
+
+  def latest_version
+    puts "not used"
+    $version_sort_override ||= {}
+    override = $version_sort_override.keys.select{|k| self.map{|i| i.include?(k)}.any?}.first
+    if override
+      return self.select{|i| i.include?($version_sort_override[override])}.first
+    else
+      return sort_by_version.last
+    end
+  end
 end
 
-#add .blank? to String
+#extensions for String class
 class String
+
+  #add .blank? to String
   def blank?
     self.nil? || self.empty?
   end
@@ -68,8 +100,9 @@ class String
   
 end
 
-#and .blank? to nil
+#extensions for Nil
 class NilClass
+  #and .blank? to nil
   def blank?
     true
   end
