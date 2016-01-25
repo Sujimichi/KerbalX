@@ -44,6 +44,9 @@ module KerbalX
       @site_interface = args[:interface]
 
       load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew.
+
+
+      $version_sort_override ||= JSON.parse(File.open( File.join([@dir, "version_exceptions.json"]), "r"){|f| f.readlines}.join) rescue {}
     end
 
 
@@ -222,7 +225,13 @@ module KerbalX
       mod = @data[identifier]           #select array of info for given identifier    
       return log_error "#{identifier} was not found in ckan data" unless mod    
       #sort by version and return last element. see comments on sortable_version method for sort process.
-      mod.sort_by{|m| sortable_version m[:version] }.last
+
+      override = $version_sort_override.keys.select{|k| identifier.include?(k)}.first
+      if override
+        mod.select{|m| m[:version].include?($version_sort_override[override])}.first
+      else      
+        mod.sort_by{|m| sortable_version m[:version] }.last
+      end
       #.select{|m| not m[:version].downcase.eql?("deprecated")}.last #ignore deprecated versions
     end
 
@@ -496,7 +505,7 @@ module KerbalX
     # ["8.1", "v10.0", "v8.1", "v8.0"].sort_by{|i| sortable_version(i)} => ["8.1", "v8.0", "v8.1", "v10.0"]
     # ["R5.2.8", "R5.2.6", "R5.2.7"  ].sort_by{|i| sortable_version(i)} => ["R5.2.6", "R5.2.7", "R5.2.8"]
     # ["0.1", "0.1.2-fixed", "0.1.2" ].sort_by{|i| sortable_version(i)} => ["0.1", "0.1.2", "0.1.2-fixed"] 
-    def sortable_version version_number
+    def sortable_version version_number    
       version_number = version_number.dup.downcase
       version_number.gsub!("-","")
       version_number = "alpha" + version_number.gsub("alpha", "") if version_number.include?("alpha")
@@ -509,6 +518,7 @@ module KerbalX
         }
       }
     end 
+
   
     #confguration for the download progress bar. If silent is true
     #then the prog-bar won't be shown.

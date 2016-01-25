@@ -31,12 +31,16 @@ describe KerbalX::CkanReader do
 
     it('should sort versions'){ ["KerbalXMAS-1.031.ckan", "KerbalXMAS-1.03.ckan", "KerbalXMAS-1.51.ckan", "KerbalXMAS--1.05a.ckan", "KerbalXMAS-1.046.ckan", "KerbalXMAS-1.032.ckan", "KerbalXMAS-1.001.ckan", "KerbalXMAS-1.0.ckan"].should be_sorted_to ["KerbalXMAS-1.0.ckan", "KerbalXMAS-1.001.ckan", "KerbalXMAS-1.03.ckan", "KerbalXMAS--1.05a.ckan", "KerbalXMAS-1.031.ckan", "KerbalXMAS-1.032.ckan", "KerbalXMAS-1.046.ckan", "KerbalXMAS-1.51.ckan"] }
 
+
     it "should know the latest version for some exceptional(ly stupid) versions" do 
+
+      $version_sort_override = {
+        "CrewQueue" => "1-1.1.0"
+      }
 
       a = ["CrewQueue-ksp1.0_release1.ckan", "CrewQueue-1-1.1.0.ckan", "CrewQueue-ksp1.0_release2.ckan", "CrewQueue-1-ksp1.0_r2.ckan", "CrewQueue-ksp1.0_r2.ckan"] 
 
-      a.sort_by{|i| $reader.send(:sortable_version, i) }.last.should == "CrewQueue-1-1.1.0.ckan"
-
+      a.sort_by{|i| $reader.send(:sortable_version, i) }.last.should == "CrewQueue-1-1.1.0.ckan" 
 
     end
    

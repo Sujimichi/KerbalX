@@ -49,16 +49,6 @@ class Array
     }
   end
 
-  def latest_version
-    puts "not used"
-    $version_sort_override ||= {}
-    override = $version_sort_override.keys.select{|k| self.map{|i| i.include?(k)}.any?}.first
-    if override
-      return self.select{|i| i.include?($version_sort_override[override])}.first
-    else
-      return sort_by_version.last
-    end
-  end
 end
 
 #extensions for String class
