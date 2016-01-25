@@ -3,7 +3,7 @@ require 'spec_helper'
 describe KerbalX::PartParser do 
 
   before(:all) do 
-    @path = File.join(File.dirname(__FILE__), "..", "test_env")
+    @path = File.join(File.dirname(__FILE__), "..", "..", "..", "test_env")
     @parser = KerbalX::PartParser.new @path
   end
 

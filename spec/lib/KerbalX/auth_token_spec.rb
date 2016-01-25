@@ -1,9 +1,9 @@
 require 'spec_helper'
 
 describe KerbalX::AuthToken do 
-  before(:all) do       
-    @path = File.join(File.dirname(__FILE__), "..", "test_env")
-    @file_path = File.join(File.dirname(__FILE__), "..", "test_env", "KerbalX.key")
+  before(:all) do          
+    @path = File.join(File.dirname(__FILE__), "..", "..", "..", "test_env")
+    @file_path = File.join(File.dirname(__FILE__), "..", "..", "..", "test_env", "KerbalX.key")
     @original_token_file = File.open(@file_path, "r"){|f| f.readlines}.join
   end
   after(:each) do 
