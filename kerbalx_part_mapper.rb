@@ -1,5 +1,8 @@
 #This is the script which is compiled into a .exe by OCRA for use in a windows environment that is devoid of ~joy~ Ruby.
 
+
+require 'KerbalX'
+=begin
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "version")      #version info
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "extensions")   #adds some rails methods (ie .blank?) to core classes (String, Array and NilClass).
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "part_parser")  #main part reading logic
@@ -7,7 +10,7 @@ require File.join(File.dirname(__FILE__), "lib", "KerbalX", "logger")       #err
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "auth_token")   #auth key reader
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "interface")    #interface with KerbalX.com
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ignore_file")  #read any user deifned mods to be ignored
-
+=end
 
 puts "\nPartMapper for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 

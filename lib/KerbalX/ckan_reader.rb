@@ -179,9 +179,9 @@ class CkanReader
       mod_info = {:name => data[:name], :root_folder => root_dir, :version => data[:version], :url => data[:url], :parts => (parts || []) }
       @mod_data.merge!(identifier => mod_info) #unless parts.empty? #merge the info about the identifier with @mod_data UNLESS it has no parts
 
-      msg "Complete; #{parts.size} part names discovered in #{data[:identifier]} #{data[:version]}\n\n"
+      msg "Complete; #{parts.size} part names discovered in #{data[:identifier]} #{data[:version]}\n".blue
     else
-      msg "Skipped #{data[:identifier]}; #{skip}\n"
+      msg "Skipped #{data[:identifier]}; #{skip}\n".yellow
     end
     log_activity identifier, {data[:version] => {:processed_on => Time.now}}
     
@@ -199,7 +199,7 @@ class CkanReader
       begin
         yield(indentifier, self)
       rescue => e
-        log_error "FAILED ON: #{indentifier}\n#{e}\n"
+        log_error "FAILED ON: #{indentifier}: #{e}".red
         begin
           remove_downloads_for indentifier, :just => data[:version]
         rescue
@@ -243,11 +243,13 @@ class CkanReader
       msg "Downloading #{data[:identifier]} version: #{data[:version]}"
       pbar = nil
       open(zip_path, 'wb'){|file| file.print open(data[:url], progress_bar(pbar)).read  }
+      msg "\n"
       if File.zero?(zip_path)
         File.delete(zip_path)
-        log_error "download of #{data[:url]} failed, zip was 0 bytes"
+        log_error "download of #{data[:url]} failed, zip was 0 bytes".red
       end
     end
+    
     remove_downloads_for data, :keep => data[:version]
     return identifier_hash
   end
@@ -270,9 +272,9 @@ class CkanReader
       File.exists?(path) && !File.zero?(path)
     end
     unless to_remove.empty?
-      msg "Removing downloads:"
+      msg "Removing unneeded downloads:".light_blue
       to_remove.each do |old_path|
-        msg "\tremoving #{old_path}"
+        msg "\tremoving #{old_path}".light_blue
         File.delete(old_path)
       end
     end
@@ -373,7 +375,7 @@ class CkanReader
       winning_mod ||= conflicting_mods.first
      
       conflicting_mods.delete(winning_mod)
-      msg "#{guess ? "\e[31m[BY GUESS]\e[0m" : "\e[34m[INFORMED]\e[0m"} Resolving #{part}; assigning it to #{winning_mod}, removing it from #{conflicting_mods.join(", ")}"
+      msg "#{guess ? "[BY GUESS]".red : "[INFORMED]".blue} Resolving #{part}; assigning it to #{winning_mod}, removing it from #{conflicting_mods.join(", ")}"
       conflicting_mods.each{|mod| @mod_data[mod][:parts].delete(part) }
     end
 
