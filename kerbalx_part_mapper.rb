@@ -1,7 +1,6 @@
 #This is the script which is compiled into a .exe by OCRA for use in a windows environment that is devoid of ~joy~ Ruby.
 
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "version")      #version info
-require File.join(File.dirname(__FILE__), "lib", "KerbalX", "config")       #config stuff
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "extensions")   #adds some rails methods (ie .blank?) to core classes (String, Array and NilClass).
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "part_parser")  #main part reading logic
 require File.join(File.dirname(__FILE__), "lib", "KerbalX", "logger")       #error logger
@@ -12,7 +11,11 @@ require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ignore_file")  #rea
 
 puts "\nPartMapper for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
-@path = KerbalX::Config[:KSP_install_dir] || Dir.getwd
+@site = "http://localhost:3000"
+#@site = "http://kerbalx.com"
+#@site = "http://kerbalx-stage.herokuapp.com"
+
+@path = "/home/sujimichi/KSP/KSP_linux" || Dir.getwd
 
 #raise error when GameData is not found
 unless Dir.entries(@path).include?("GameData")
@@ -23,7 +26,7 @@ end
 ignore = KerbalX::IgnoreFile.new(@path) if File.exists?(File.join([@path, "ignore_mods.txt"]))
 
 #scan for Parts and transmit to KerbalX with the users auth-token
-KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
+KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
   puts "Scanning Parts in #{@path}"
   puts "These mods will be ignored; #{ignore.join(", ")}" unless ignore.blank?
   parser = KerbalX::PartParser.new @path, :associate_components => false, :ignore_mods => ignore.to_a

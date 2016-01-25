@@ -2,6 +2,8 @@ module KerbalX
 
   class Interface
     require 'net/http'
+    attr_accessor :site
+    alias remote_address site 
 
     class FailedResponse
       attr_accessor :body, :code
@@ -11,8 +13,8 @@ module KerbalX
       end
     end
 
-    def initialize token, &blk
-      @site = Config[:remote_address]
+    def initialize site_url, token, &blk
+      @site = site_url
 
       @token = token
       if @token.valid?
@@ -84,12 +86,12 @@ module KerbalX
       }.inject{|i,j| i.merge(j)}                    #re hash
     end
 
-    def self.lookup_part_info part_names
+    def lookup_part_info part_names
       begin
-        r = KerbalX::Interface.fetch("#{Config[:remote_address]}/part_lookup.json", {:part_names => part_names.to_json}).body
+        r = fetch("#{@site}/part_lookup.json", {:part_names => part_names.to_json}).body
         info = JSON.parse(r)
       rescue
-        info = {"error" => "failed to get info from #{Config[:remote_address]}"}
+        info = {"error" => "failed to get info from #{@site}"}
       end
       return info
     end
@@ -113,20 +115,16 @@ module KerbalX
       begin
         yield
       rescue => e
-
       end
     end
 
-    def self.fetch url, data = {}
-      require 'net/http'
+    def fetch url, data = {}
       uri = URI.parse(url)
       http = Net::HTTP.new(uri.host, uri.port)
       request = Net::HTTP::Get.new(uri.request_uri)
-
       request.set_form_data(data)
       response = http.request(request)
-    end
-        
+    end       
 
   end 
 

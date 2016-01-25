@@ -1,6 +1,4 @@
 require "KerbalX/version"
-require "KerbalX/config"
-
 
 #extends Array with .split and .blank? and extends String and NilClass with .blank?
 #extensions not required when used in a rails app as rails provides these extensions.

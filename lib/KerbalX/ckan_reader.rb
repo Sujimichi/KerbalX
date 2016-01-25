@@ -41,6 +41,7 @@ class CkanReader
     @pretty_json = true   #if true then format JSON with whitespace and newlines
     @halt_on_error = false
     @mod_dir= "ModArchive"#Folder were mod zips are downloaded into
+    @site_interface = args[:interface]
     
     load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew.
   end
@@ -129,7 +130,7 @@ class CkanReader
   #then itterates over a given subset of identifiers (all to_process if none given) and passes each one to process_identifier
   #which in turn downloads, unpacks and reads out part name info from the .cfg files.
   def process subset = to_process, args = {}
-    #all_mods(subset){|identifier, reader| reader.process_identifier(identifier, args) }
+    all_mods(subset){|identifier, reader| reader.process_identifier(identifier, args) }
     resolve_conflicts #remove duplicate instances of parts, ensure each part belongs to just one mod.
     return nil
   end
@@ -356,8 +357,8 @@ class CkanReader
     return msg "No conflicts to resolve" if conflict_map.empty?
 
     msg "There are #{conflict_map.keys.size} conflicting parts to resolve"
-    msg "fetching part info from #{KerbalX::Config[:remote_address]}"
-    kx_part_info = KerbalX::Interface.lookup_part_info conflict_map.keys
+    msg "fetching part info from #{@site_interface.remote_address}"
+    kx_part_info = @site_interface.lookup_part_info conflict_map.keys
     
     conflict_map.each do |part, conflicting_mods|     
       winning_mod = nil
