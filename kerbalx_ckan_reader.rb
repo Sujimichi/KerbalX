@@ -21,7 +21,7 @@ puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
 
   ckan_reader = CkanReader.new :dir => @path
-  ckan_reader.update_repo 
+  #ckan_reader.update_repo 
 
   ckan_reader.load_mod_data #load mod data from previous runs
   
@@ -31,11 +31,11 @@ KerbalX::Interface.new(KerbalX::AuthToken.new(@path)) do |kerbalx|
  
   #send data to KerbalX (using non-indented json)
   ckan_reader.pretty_json = false
-  kerbalx.update_knowledge_base_with_ckan_data ckan_reader.json_data
+  #kerbalx.update_knowledge_base_with_ckan_data ckan_reader.json_data
 
-  unless ckan_reader.errors.empty?
-    puts "errors:\n"
-    ckan_reader.show_errors
-  end
+  #unless ckan_reader.errors.empty?
+  #  puts "errors:\n"
+  #  ckan_reader.show_errors
+  #end
   
 end

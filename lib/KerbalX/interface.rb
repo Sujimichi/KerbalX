@@ -12,7 +12,7 @@ module KerbalX
     end
 
     def initialize token, &blk
-      @site = KerablX::Config[:remote_address]    
+      @site = Config[:remote_address]
 
       @token = token
       if @token.valid?
@@ -83,7 +83,17 @@ module KerbalX
         { mod => group.map{|g| g.first} }           #remove other part info, leaving just array of part names
       }.inject{|i,j| i.merge(j)}                    #re hash
     end
-    
+
+    def self.lookup_part_info part_names
+      begin
+        r = KerbalX::Interface.fetch("#{Config[:remote_address]}/part_lookup.json", {:part_names => part_names.to_json}).body
+        info = JSON.parse(r)
+      rescue
+        info = {"error" => "failed to get info from #{Config[:remote_address]}"}
+      end
+      return info
+    end
+
 
     private
 
@@ -106,6 +116,17 @@ module KerbalX
 
       end
     end
+
+    def self.fetch url, data = {}
+      require 'net/http'
+      uri = URI.parse(url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      request = Net::HTTP::Get.new(uri.request_uri)
+
+      request.set_form_data(data)
+      response = http.request(request)
+    end
+        
 
   end 
 

@@ -129,7 +129,7 @@ class CkanReader
   #then itterates over a given subset of identifiers (all to_process if none given) and passes each one to process_identifier
   #which in turn downloads, unpacks and reads out part name info from the .cfg files.
   def process subset = to_process, args = {}
-    all_mods(subset){|identifier, reader| reader.process_identifier(identifier, args) }
+    #all_mods(subset){|identifier, reader| reader.process_identifier(identifier, args) }
     resolve_conflicts #remove duplicate instances of parts, ensure each part belongs to just one mod.
     return nil
   end
@@ -345,24 +345,37 @@ class CkanReader
   end
 
   #Resolve situation where a part is found to be present in more than one mod.
-  #The resolution is simple, the part is assigned to the first mod in the list and removed 
-  #from the others. This may be overly simple, but I think it will deal with most of the 
-  #situations. In most cases conflicting parts come from mods by the same author
+  #The first method used is to fetch info from KerbalX about known parts and which mods they belong to on the site
+  #That is then used to make the choice of which mod to add the part to.
+  #If the part is not known about on the site then unfortunatly the best that I can come up with here is to simply assign
+  #it to the first mod in the list.
   def resolve_conflicts
+    msg "\nChecking for conflicting parts...."
     conflict_map = conflicting_parts
+
     return msg "No conflicts to resolve" if conflict_map.empty?
+
     msg "There are #{conflict_map.keys.size} conflicting parts to resolve"
-    conflict_map.each do |part, conflicting_mods|
-      winning_mod = conflicting_mods.first      
+    msg "fetching part info from #{KerbalX::Config[:remote_address]}"
+    kx_part_info = KerbalX::Interface.lookup_part_info conflict_map.keys
+    
+    conflict_map.each do |part, conflicting_mods|     
+      winning_mod = nil
+      part_info = kx_part_info[part]
+
+      guess = true
+      if !part_info.nil? && part_info.keys.include?("mod")
+        mod_on_kx = part_info["mod"]["ckan_identifier"]
+        winning_mod = conflicting_mods.select{|m| m.eql?(mod_on_kx)}.first
+        guess = false unless winning_mod.nil?
+      end
+      winning_mod ||= conflicting_mods.first
+     
       conflicting_mods.delete(winning_mod)
-      msg "Resolving #{part}; assigning it to #{winning_mod}, removing it from #{conflicting_mods.join(", ")}"
+      msg "#{guess ? "\e[31m[BY GUESS]\e[0m" : "\e[34m[INFORMED]\e[0m"} Resolving #{part}; assigning it to #{winning_mod}, removing it from #{conflicting_mods.join(", ")}"
       conflicting_mods.each{|mod| @mod_data[mod][:parts].delete(part) }
     end
 
-    #@mod_data.select{|m,d| d[:parts].empty?}.each{|id,v| 
-    #  msg "removing #{id} as it now has no parts"
-    #  @mod_data.delete(id)
-    #}
     return nil
   end
 
