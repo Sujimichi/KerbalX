@@ -26,7 +26,7 @@ module KerbalX
     require 'zip/zip'
     require "KerbalX/extensions" unless [].respond_to?(:split)
 
-    attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json
+    attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error
 
     def initialize args = {}
       defaults = {:dir => Dir.getwd, :activity_log => nil}
@@ -55,14 +55,25 @@ module KerbalX
     #TODO replace with json file that is loaded at start
     def ignore_list
       [
-        "AJE",                                #conflict with AdvancedJetEngine and appears to have been replaced by it
-        "ResGen",                             #conflicts with B9, contains full copy of B9 and no other parts
-        "VirginKalactic-NodeToggle",          #conflicts with B9, contains full copy of B9 and no other parts
-        "KineTechAnimation",                  #conflicts with B9, contains full copy of B9 and no other parts
-        "KSPInterstellarLite",                #conflicts with KSPInterstellar, has same parts
-        "InterstellarLite090",                #conflicts with KSPInterstellar, has same parts
-        "StationPartsExpansion",              #conflicts with NearFutureProps
-        "ModularRocketSystemsLITE",           #conflicts with ModularRocketSystem (ModularRocketSystem has more parts)
+        "Area21SCraft",
+        "LittleGreenMenFromMars",
+        "LolexCar",
+        "SASTuningFix",
+        "SR71BlackbirdMk2wIVA",
+
+        "PreciseNode",
+        "Graphotron",
+        "HyperEdit",
+        "ActiveStruts",
+
+        #"AJE",                                #conflict with AdvancedJetEngine and appears to have been replaced by it
+        #"ResGen",                             #conflicts with B9, contains full copy of B9 and no other parts
+        #"VirginKalactic-NodeToggle",          #conflicts with B9, contains full copy of B9 and no other parts
+        #"KineTechAnimation",                  #conflicts with B9, contains full copy of B9 and no other parts
+        #"KSPInterstellarLite",                #conflicts with KSPInterstellar, has same parts
+        #"InterstellarLite090",                #conflicts with KSPInterstellar, has same parts
+        #"StationPartsExpansion",              #conflicts with NearFutureProps
+        #"ModularRocketSystemsLITE",           #conflicts with ModularRocketSystem (ModularRocketSystem has more parts)
         #"TACLS-Config-Stock",                 #conflicts with TACLS, has same parts
         "NearFuturePropulsionExtras",         #conflicts with NearFuturePropulsion
         "SpaceX-ColonialTransporter-LR",      #conflicts with SpaceX-ColonialTransporter-HD, has same parts
@@ -186,7 +197,7 @@ module KerbalX
       else
         msg "Skipped #{data[:identifier]}; #{skip}\n".yellow
       end
-      log_activity identifier, {data[:version] => {:processed_on => Time.now}}
+      log_activity identifier, {data[:version] => {:processed_on => Time.now}} unless skip.eql?("on ignore list")
 
       data
     end
@@ -505,18 +516,20 @@ module KerbalX
     # ["8.1", "v10.0", "v8.1", "v8.0"].sort_by{|i| sortable_version(i)} => ["8.1", "v8.0", "v8.1", "v10.0"]
     # ["R5.2.8", "R5.2.6", "R5.2.7"  ].sort_by{|i| sortable_version(i)} => ["R5.2.6", "R5.2.7", "R5.2.8"]
     # ["0.1", "0.1.2-fixed", "0.1.2" ].sort_by{|i| sortable_version(i)} => ["0.1", "0.1.2", "0.1.2-fixed"] 
-    def sortable_version version_number    
-      version_number = version_number.dup.downcase
-      version_number.gsub!("-","")
-      version_number = "alpha" + version_number.gsub("alpha", "") if version_number.include?("alpha")
-      version_number = "beta"  + version_number.gsub("beta",  "") if version_number.include?("beta")    
-      version_number = "v" + version_number unless version_number.match(/^v/)
+    def sortable_version version
+      #get epoch value. 
+      v = version.split(":")
+      epoch = v.size > 1 ? v.first.to_i : 0 #if the version contains a : take value before : to be epoch otherwise epoch is 0
+      v = v.last.downcase #regardless of whether or not version contains :, .last will be rest of the version
 
-      version_number.split(".").map{|component|   #split the version number by '.' -> version components
-        component.split(/(\d+)/).map{|s|          #split each version component into alphas and numerics ie "v10" -> ["v", "10"] or "5-pre" -> ["5", "-pre"]
-          (!!Float(s) rescue false) ? s.to_i : s  #convert strings that contain numerical values into Floats, otherwise remain as strings
-        }
-      }
+      #handle sorting of versions with 'alpha' and 'beta' tags.
+      cycle = v.include?("alpha") ? 0 : (v.include?("beta") ? 1 : 2) #score alpha as 0, beta as 1 and everything else as 2
+      v = v.gsub("alpha", "").gsub("beta", "") #remove alpha and beta tags from version
+
+      a = v.split(/[\d|\W]/)
+      a = [""] if a.empty?
+      n = v.split(/\D/).map{|i| i.to_i unless i.empty?}.compact     
+      [epoch, cycle, n, a]
     end 
 
   

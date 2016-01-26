@@ -25,7 +25,7 @@ describe KerbalX::CkanReader do
     
     it('should sort versions'){ ["0.1", "0.1.2-fixed", "0.1.2" ].should be_sorted_to ["0.1", "0.1.2", "0.1.2-fixed"] }
 
-    it('should sort versions'){ ["8.1", "v10.0", "v8.1", "v8.0"].should be_sorted_to ["v8.0", "v8.1", "8.1", "v10.0"] }
+    it('should sort versions'){ ["8.1", "v10.0", "v8.1", "v8.0"].should be_sorted_to ["v8.0", "8.1", "v8.1", "v10.0"] }
 
     it('should sort versions'){ ["foo-alpha-1.0.2", "foo-beta-1.0.2", "foo-alpha-1.0.3", "foo-1.0.0", "foo-beta-1.0.1"].should be_sorted_to ["foo-alpha-1.0.2", "foo-alpha-1.0.3", "foo-beta-1.0.1", "foo-beta-1.0.2", "foo-1.0.0"] }
 

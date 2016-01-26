@@ -35,20 +35,24 @@ class Array
   def sort_v    
     puts "\n\nsorting #{self}"
 
-    s = self.sort_by do |version|
+    self.sort_by do |version|
       #get epoch value. 
       v = version.split(":")
       epoch = v.size > 1 ? v.first.to_i : 0 #if the version contains a : take value before : to be epoch otherwise epoch is 0
-      v = v.last #regardless of whether or not version contains :, .last will be rest of the version
+      v = v.last.downcase #regardless of whether or not version contains :, .last will be rest of the version
+
+      #handle sorting of versions with 'alpha' and 'beta' tags.
+      cycle = v.include?("alpha") ? 0 : (v.include?("beta") ? 1 : 2) #score alpha as 0, beta as 1 and everything else as 2
+      v = v.gsub("alpha", "").gsub("beta", "") #remove alpha and beta tags from version
 
       a = v.split(/[\d|\W]/)
       a = [""] if a.empty?
       n = v.split(/\D/).map{|i| i.to_i unless i.empty?}.compact
-      puts [epoch, n,a].inspect
-      [epoch, n, a]
-    end
-
-    return s
+      
+      sort_key = [epoch, cycle, n, a]
+      puts sort_key.inspect
+      sort_key
+    end  
   end
 
 end

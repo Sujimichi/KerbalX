@@ -32,9 +32,13 @@ describe "extensions" do
       ["R5.2.6", "R5.2.7", "R5.2.8"],
       ["v8.0", "8.1", "v8.1", "v10.0"],
       ["0.5.4", "0.8.0", "0.8.1", "1:0.7.1.0"],
+      [ "1.4", "Version_1.4.1", "1.4.2", "1.5", "v1.5.1"],
       ["7-4", "1:EVE-1.05-1", "1:EVE-1.05-2", "1:EVE-1.05-3", "1:EVE-1.05-4"],       
       ["ksp1.0_release1", "ksp1.0_r2", "ksp1.0_release2", "1:ksp1.0_r2","1:1.1.0"],
-      ["v1.0.1-alpha", "v1.0.2-alpha", "v1.0.3-alpha", "v1.0.3-alpha-fix2", "v1.0.4-alpha", "v1.0.4b-alpha", "v1.0.5", "v1.0.6"]
+      ["v1.0.1-alpha", "v1.0.2-alpha", "v1.0.3-alpha", "v1.0.3-alpha-fix2", "v1.0.4-alpha", "v1.0.4b-alpha", "v1.0.5", "v1.0.6"],
+      ["KerbalXMAS-1.0.ckan", "KerbalXMAS-1.001.ckan", "KerbalXMAS-1.03.ckan", "KerbalXMAS--1.05a.ckan", "KerbalXMAS-1.031.ckan", "KerbalXMAS-1.032.ckan", "KerbalXMAS-1.046.ckan", "KerbalXMAS-1.51.ckan"],
+
+      ["foo-alpha-1.0.2", "foo-alpha-1.0.3", "foo-beta-1.0.1", "foo-beta-1.0.2", "foo-1.0.0"]
     ]
     $data = @data
 
@@ -48,7 +52,7 @@ describe "extensions" do
     end
   
     it 'should simple test' do
-      a = $data[5] 
+      a = ["foo-alpha-1.0.2", "foo-alpha-1.0.3", "foo-Beta-1.0.1", "foo-beta-1.0.2", "foo-1.0.0"]
       a.reverse.sort_v.should == a
     end
 
