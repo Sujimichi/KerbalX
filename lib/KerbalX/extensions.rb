@@ -32,21 +32,23 @@ class Array
     self.nil? || self.empty?
   end
 
-  def sort_by_version    
-    puts "not used"
-    self.sort_by{ |version_number|
-      version_number = version_number.dup.downcase
-      version_number.gsub!("-","")
-      version_number = "alpha" + version_number.gsub("alpha", "") if version_number.include?("alpha")
-      version_number = "beta"  + version_number.gsub("beta",  "") if version_number.include?("beta")
-      version_number = "v" + version_number unless version_number.match(/^v/)
+  def sort_v    
+    puts "\n\nsorting #{self}"
 
-      version_number.split(".").map{|component|   #split the version number by '.' -> version components
-        component.split(/(\d+)/).map{|s|          #split each version component into alphas and numerics ie "v10" -> ["v", "10"] or "5-pre" -> ["5", "-pre"]
-          (!!Float(s) rescue false) ? s.to_i : s  #convert strings that contain numerical values into Floats, otherwise remain as strings
-        }
-      }            
-    }
+    s = self.sort_by do |version|
+      #get epoch value. 
+      v = version.split(":")
+      epoch = v.size > 1 ? v.first.to_i : 0 #if the version contains a : take value before : to be epoch otherwise epoch is 0
+      v = v.last #regardless of whether or not version contains :, .last will be rest of the version
+
+      a = v.split(/[\d|\W]/)
+      a = [""] if a.empty?
+      n = v.split(/\D/).map{|i| i.to_i unless i.empty?}.compact
+      puts [epoch, n,a].inspect
+      [epoch, n, a]
+    end
+
+    return s
   end
 
 end

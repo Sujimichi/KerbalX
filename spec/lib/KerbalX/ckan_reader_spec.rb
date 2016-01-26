@@ -31,6 +31,10 @@ describe KerbalX::CkanReader do
 
     it('should sort versions'){ ["KerbalXMAS-1.031.ckan", "KerbalXMAS-1.03.ckan", "KerbalXMAS-1.51.ckan", "KerbalXMAS--1.05a.ckan", "KerbalXMAS-1.046.ckan", "KerbalXMAS-1.032.ckan", "KerbalXMAS-1.001.ckan", "KerbalXMAS-1.0.ckan"].should be_sorted_to ["KerbalXMAS-1.0.ckan", "KerbalXMAS-1.001.ckan", "KerbalXMAS-1.03.ckan", "KerbalXMAS--1.05a.ckan", "KerbalXMAS-1.031.ckan", "KerbalXMAS-1.032.ckan", "KerbalXMAS-1.046.ckan", "KerbalXMAS-1.51.ckan"] }
 
+    it('should sort versions'){ ["v1.5.1", "Version_1.4.1", "1.4.2", "1.5", "1.4"].should be_sorted_to [ "1.4", "Version_1.4.1", "1.4.2", "1.5", "v1.5.1"] }
+
+ 
+
 
     it "should know the latest version for some exceptional(ly stupid) versions" do 
 

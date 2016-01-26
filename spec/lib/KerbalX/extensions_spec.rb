@@ -24,6 +24,39 @@ describe "extensions" do
   end
 
 
+  describe "sorting by version number" do 
+
+
+    @data = [
+      ["0.30", "1:v0.30"],
+      ["R5.2.6", "R5.2.7", "R5.2.8"],
+      ["v8.0", "8.1", "v8.1", "v10.0"],
+      ["0.5.4", "0.8.0", "0.8.1", "1:0.7.1.0"],
+      ["7-4", "1:EVE-1.05-1", "1:EVE-1.05-2", "1:EVE-1.05-3", "1:EVE-1.05-4"],       
+      ["ksp1.0_release1", "ksp1.0_r2", "ksp1.0_release2", "1:ksp1.0_r2","1:1.1.0"],
+      ["v1.0.1-alpha", "v1.0.2-alpha", "v1.0.3-alpha", "v1.0.3-alpha-fix2", "v1.0.4-alpha", "v1.0.4b-alpha", "v1.0.5", "v1.0.6"]
+    ]
+    $data = @data
+
+    @data.each do |test| 
+
+      it "should sort array of version numbers to #{test}" do 
+        unsorted = test.sort_by{rand}
+        unsorted.sort_v.should == test      
+      end
+
+    end
+  
+    it 'should simple test' do
+      a = $data[5] 
+      a.reverse.sort_v.should == a
+    end
+
+  end
+
+
+
+
 =begin
   describe "sort_by_version" do 
 
