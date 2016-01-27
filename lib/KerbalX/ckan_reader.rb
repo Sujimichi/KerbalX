@@ -26,7 +26,7 @@ module KerbalX
     require 'zip/zip'
     require "KerbalX/extensions" unless [].respond_to?(:split)
 
-    attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error
+    attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error, :ignore_list
 
     def initialize args = {}
       defaults = {:dir => Dir.getwd, :activity_log => nil}
@@ -43,46 +43,13 @@ module KerbalX
       @mod_dir= "ModArchive"#Folder were mod zips are downloaded into
       @site_interface = args[:interface]
       load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew.
+      load_ignore_list
     end
 
 
     #list of mods to ignore, these are mods that are known to not contain any parts, or if they do contain parts they conflict with or completely include other mods
-    #ie ResGen contains all of B9 so all it's parts conflict (same with VirginKalactic-NodeToggle)
-    #TODO replace with json file that is loaded at start
-    def ignore_list
-      [
-        "Area21SCraft",
-        "LittleGreenMenFromMars",
-        "LolexCar",
-        "SASTuningFix",
-        "SR71BlackbirdMk2wIVA",
-
-        "PreciseNode",
-        "Graphotron",
-        "HyperEdit",
-        "ActiveStruts",
-
-        #"AJE",                                #conflict with AdvancedJetEngine and appears to have been replaced by it
-        #"ResGen",                             #conflicts with B9, contains full copy of B9 and no other parts
-        #"VirginKalactic-NodeToggle",          #conflicts with B9, contains full copy of B9 and no other parts
-        #"KineTechAnimation",                  #conflicts with B9, contains full copy of B9 and no other parts
-        #"KSPInterstellarLite",                #conflicts with KSPInterstellar, has same parts
-        #"InterstellarLite090",                #conflicts with KSPInterstellar, has same parts
-        #"StationPartsExpansion",              #conflicts with NearFutureProps
-        #"ModularRocketSystemsLITE",           #conflicts with ModularRocketSystem (ModularRocketSystem has more parts)
-        #"TACLS-Config-Stock",                 #conflicts with TACLS, has same parts
-        "NearFuturePropulsionExtras",         #conflicts with NearFuturePropulsion
-        "SpaceX-ColonialTransporter-LR",      #conflicts with SpaceX-ColonialTransporter-HD, has same parts
-        "SpaceX-ColonialTransporter-Standard",#conflicts with SpaceX-ColonialTransporter-HD, has same parts
-        "HandGliderStyleWings",               #conflicts with Hand-GliderStyleWings (same parts, same everything, chosen this one as the url also has a - in Hand-Glider)
-        "LazTekSpaceXLaunch", "LazTekSpaceXLaunch-HD", "LazTekSpaceXLaunch-LD", "SpaceX-LaunchPack-HD", "SpaceX-LaunchPack-LR",
-        #all above line conflicts with SpaceX-LaunchPack-Standard (SpaceX-LaunchPack-Standard has more parts and seems to be more current)
-        "LazTekSpaceXHistoric", "LazTekSpaceXHistoric-HD", "LazTekSpaceXHistoric-LD", "SpaceX-HistoricArchive-LR",
-        #all the above line conflicts with SpaceX-HistoricArchive-Standard all have the same parts
-        "LazTekSpaceXExploration", "LazTekSpaceXExploration-HD", "LazTekSpaceXExploration-LD", "SpaceX-ExplorationExtension-HD", "SpaceX-ExplorationExtension-LR",
-        #all the above line conflicts with SpaceX-ExplorationExtension-Standard all have the same parts
-        ["AstronomersPack-DistantObjectEnhancement", "AstronomersPack-PlanetShine", "AstronomersPack-Clouds-Low", "AstronomersPack-Snow", "AstronomersPack-SurfaceGlow", "AstronomersPack", "AstronomersPack-Eve-Jool-Clouds-8K", "AstronomersPack-Eve-Jool-Clouds-4K", "AstronomersPack-Sandstorms", "AstronomersPack-Clouds-Medium", "AstronomersPack-Auroras-4K", "AstronomersPack-Auroras-8K", "AstronomersPack-Clouds-High", "AstronomersPack-Lightning", "AstronomersPack-Eve-Jool-Clouds-2K", "AstronomersPack-AtmosphericScattering"] 
-      ].flatten
+    def load_ignore_list
+      @ignore_list = JSON.parse(File.open(File.join([@dir, "ignore_list.json"]), 'r'){|f| f.readlines}.join) rescue []
     end
 
     ##~~Fetch, Update and Read CKAN-meta repo~~##
@@ -247,10 +214,10 @@ module KerbalX
       Dir.mkdir(temp_dir) unless Dir.entries(@dir).include? @mod_dir #create dir for downloading zips into 
 
       if File.exists?(zip_path) && !File.zero?(zip_path) #don't download if zip is already present
-        msg "#{data[:identifier]}-#{data[:version]}.zip already downloaded"
+        msg "#{data[:identifier]}-#{data[:version]}.zip already downloaded".light_blue
       else
         #download url and store as a zip named according to indentifier
-        msg "Downloading #{data[:identifier]} version: #{data[:version]}"
+        msg "Downloading #{data[:identifier]} version: #{data[:version]} - (#{versions_for(data[:identifier])})"
         pbar = nil
         open(zip_path, 'wb'){|file| file.print open(data[:url], progress_bar(pbar)).read  }
         msg "\n"
@@ -279,7 +246,7 @@ module KerbalX
       to_remove = previous_versions.map do |previous_version|
         File.join([temp_dir, "#{data[:identifier]}-#{previous_version}.zip"]) 
       end.select do |path|
-        File.exists?(path) && !File.zero?(path)
+        File.exists?(path) #&& !File.zero?(path)
       end
       unless to_remove.empty?
         msg "Removing unneeded downloads:".light_blue
@@ -473,7 +440,6 @@ module KerbalX
         end
       end
     end
-
 
     def json_data
       make_json(@mod_data)
