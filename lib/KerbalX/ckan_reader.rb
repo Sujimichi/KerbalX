@@ -29,28 +29,24 @@ module KerbalX
     attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error, :ignore_list
 
     def initialize args = {}
-      defaults = {:dir => Dir.getwd, :activity_log => nil}
+      defaults = {:dir => Dir.getwd, :activity_log => nil, :ckan_repo => "https://github.com/KSP-CKAN/CKAN-meta.git"}
       args = defaults.merge(args)
-      @dir = args[:dir]     #dir where reop will be cloned into and where zips will be downloaded to an unpacked
-      @repo = "CKAN-meta"   #name of the CKAN repo's folder
-      @mod_data = {}        #store for resultant info of mods and their parts
-      @errors = []          #store for tracking errors during run
-      @message_log = []     #log of running messages
-      @verbose = false      #if true then show extra warnings (ie when files in GameData are being replaced)
-      @silent = false       #if true then DONT show text output 
-      @pretty_json = true   #if true then format JSON with whitespace and newlines
+      @dir = args[:dir]                     #dir where reop will be cloned into and where zips will be downloaded to an unpacked
+      @ckan_repo = args[:ckan_repo]         #address for the CKAN repo on github
+      @repo = "CKAN-meta"                   #name of the CKAN repo's folder
+      @mod_data = {}                        #store for resultant info of mods and their parts
+      @errors = []                          #store for tracking errors during run
+      @message_log = []                     #log of running messages
+      @verbose = false                      #if true then show extra warnings (ie when files in GameData are being replaced)
+      @silent = false                       #if true then DONT show text output 
+      @pretty_json = true                   #if true then format JSON with whitespace and newlines
       @halt_on_error = false
-      @mod_dir= "ModArchive"#Folder were mod zips are downloaded into
-      @site_interface = args[:interface]
-      load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew.
-      load_ignore_list
+      @mod_dir= "ModArchive"                #Folder were mod zips are downloaded into
+      @site_interface = args[:interface]    #instance of KerbalX::Interface which has been initialized with an auth-token
+      load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew).
+      load_ignore_list                      #read in list of mods which will be excluded from processing
     end
 
-
-    #list of mods to ignore, these are mods that are known to not contain any parts, or if they do contain parts they conflict with or completely include other mods
-    def load_ignore_list
-      @ignore_list = JSON.parse(File.open(File.join([@dir, "ignore_list.json"]), 'r'){|f| f.readlines}.join) rescue []
-    end
 
     ##~~Fetch, Update and Read CKAN-meta repo~~##
     #methods to handle fetching and updating CKAN repo and
@@ -62,7 +58,7 @@ module KerbalX
       puts "Cloning CKAN-meta repo into #{@dir}"
       cur_dir = Dir.getwd
       Dir.chdir(@dir)
-      `git clone https://github.com/KSP-CKAN/CKAN-meta.git`
+      `git clone #{@ckan_repo}`
       Dir.chdir(cur_dir)
     end
 
@@ -139,19 +135,17 @@ module KerbalX
         #either way download returns the identifier data and passes that to unpacked (alias for unpack) which extracts just the .cfg files
         #unpack returns an Array of paths to the cfg files which are passed to read_parts_from which scans them and returns an array of part names       
         parts = read_parts_from unpacked downloaded identifier 
+        
+        #getting the most common root_dir is the best guess at the name PartMapper will have found for a mod and therefore what it will be called on KerbalX
         root_dir = @root_dirs.group_by{|i| i}.values.max_by(&:size) #@root_dirs is populated by read_parts_from with the root dir inside GameData for each cfg
         root_dir = root_dir.first if root_dir
         if root_dir.blank?
-          msg "Assumption: root folder not found for #{identifier}, using identifier as root_dir"
+          msg "Assumption: root folder not found for #{identifier}, using identifier as root_dir".yellow
           root_dir = identifier
         end
-        #getting the most common root_dir is the best guess at the name PartMapper will have found for a mod and therefore what it will be called on KerbalX
 
-        #ensure parts are all uniq and log warning if any duplicate parts are removed
-        psize = parts.size
-        parts.uniq!
-        log_error "WARNING: Duplicate Parts in #{data[:identifier]}" unless parts.size == psize
-
+        log_error "WARNING: a duplicate part somehow made it though to here!".red if parts.detect{|p| parts.count(p) > 1}
+       
         #assemble hash of parts and other info for the identifier
         mod_info = {:name => data[:name], :root_folder => root_dir, :version => data[:version], :url => data[:url], :parts => (parts || []) }
         @mod_data.merge!(identifier => mod_info) #unless parts.empty? #merge the info about the identifier with @mod_data UNLESS it has no parts
@@ -295,37 +289,34 @@ module KerbalX
     def read_parts_from cfg_paths
       @root_dirs = []
       cfg_paths.map do |cfg_path|
-
+        next if cfg_path.include?("__MACOSX") #skip __MACOSX files
         begin
           cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines} #open the cfg file using Unicode BOM to deal with some encoding present in cfg files.
         rescue
-          log_error "failed to read #{cfg_path}"
+          log_error "failed to read #{cfg_path.sub(@dir, "")}".red
           next #skip this file 
-        end
+        end       
 
         first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? rescue false }.first #find first line that isn't comments or empty space
         #the rescue false allows this to ignore lines that fail. typically this is due to an "invalid byte sequence in UTF-8" error
         #and that *usually* is only an issue for description lines which we don't care about.
 
         if first_significant_line.nil?
-          log_error "no significant line found in: #{cfg_path}" 
+          log_error "no significant line found in: #{cfg_path.sub(@dir, "")}".yellow 
           next
         end
 
-        if first_significant_line.match(/^PART/)        
-
+        if first_significant_line.match(/^PART/)
           #find the root folder inside GameData that the cfg is in (this will be the name that KerbalX knows the mod as, due to the way the PartMapper tool works)
           @root_dirs << cfg_path.split("GameData/").last.split("/").first 
-
           cfg.split(first_significant_line).map do |sub_component| #this deals with the case of a cfg file containing multiple parts
             name = sub_component.select{|line| line.include?("name =")}.first #find the first instance of attribute "name" and return value
             name = name.sub("name = ","").strip.sub("@",'').chomp unless name.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
-            name ||= ""
+            next if name.blank?
             name.gsub("_",".") #part names need to be as they appear in craft files, '_' is used in the cfg but is replaced with '.' in craft files
           end
         end
-
-      end.flatten.compact
+      end.flatten.compact.uniq
     end
 
 
@@ -464,7 +455,6 @@ module KerbalX
         data = JSON.parse(File.open(File.join([@dir,"mod_data.json"]), "r"){|f| f.readlines }.join)
       rescue
         msg "No mod_data file to load"
-
       end
       if data
         default_proc = proc do |h, k|
@@ -478,32 +468,16 @@ module KerbalX
         @mod_data = data
       end
     end
+        
+    #list of mods to ignore, these are mods that are known to not contain any parts, or if they do contain parts they conflict with or completely include other mods
+    def load_ignore_list
+      @ignore_list = JSON.parse(File.open(File.join([@dir, "ignore_list.json"]), 'r'){|f| f.readlines}.join) rescue []
+    end
 
+    
     private
 
-    #returns an Array of the component parts of a version number such that it can be enumerated
-    #Example use:
-    # ["8.1", "v10.0", "v8.1", "v8.0"].sort_by{|i| sortable_version(i)} => ["8.1", "v8.0", "v8.1", "v10.0"]
-    # ["R5.2.8", "R5.2.6", "R5.2.7"  ].sort_by{|i| sortable_version(i)} => ["R5.2.6", "R5.2.7", "R5.2.8"]
-    # ["0.1", "0.1.2-fixed", "0.1.2" ].sort_by{|i| sortable_version(i)} => ["0.1", "0.1.2", "0.1.2-fixed"] 
-    def sortable_version version
-      raise "DEPRICATED - use ['v1', 'v2'].sort_by_version || [{:v => 'v1'}, {;v => 'v2'}].sort_by_version{|i| i[:v]}"
-      #get epoch value. 
-      v = version.split(":")
-      epoch = v.size > 1 ? v.first.to_i : 0 #if the version contains a : take value before : to be epoch otherwise epoch is 0
-      v = v.last.downcase #regardless of whether or not version contains :, .last will be rest of the version
-
-      #handle sorting of versions with 'alpha' and 'beta' tags.
-      cycle = v.include?("alpha") ? 0 : (v.include?("beta") ? 1 : 2) #score alpha as 0, beta as 1 and everything else as 2
-      v = v.gsub("alpha", "").gsub("beta", "") #remove alpha and beta tags from version
-
-      a = v.split(/[\d|\W]/)
-      a = [""] if a.empty?
-      n = v.split(/\D/).map{|i| i.to_i unless i.empty?}.compact     
-      [epoch, cycle, n, a]
-    end 
-
-  
+ 
     #confguration for the download progress bar. If silent is true
     #then the prog-bar won't be shown.
     def progress_bar pbar    
