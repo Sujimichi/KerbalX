@@ -177,11 +177,7 @@ module KerbalX
           yield(indentifier, self)
         rescue => e
           log_error "FAILED ON: #{indentifier}: #{e}".red
-          begin
-            remove_downloads_for indentifier, :just => data[:version]
-          rescue
-          end
-          nil
+          remove_downloads_for indentifier, :just => data[:version]
           msg "\n"
         end
       end.compact
@@ -207,11 +203,11 @@ module KerbalX
     #takes a hash with the keys :url, :identifier and :version and downloads the zip from the url and stores it accorder to :identifier and :version 
     #OR when given a string (an identifier) will lookup the latest version from CKAN-meta data and then download and store that.
     def download identifier_hash
-      data = identifier_hash.is_a?(String) ? latest_version_for(identifier_hash) : identifier_hash #select latest version from given identifier or use given identifier_hash
-      temp_dir = File.join([@dir, @mod_dir]) 
-      zip_path = File.join([temp_dir, "#{data[:identifier]}-#{data[:version]}.zip"]) 
+      data = identifier_hash_for identifier_hash #returns latest version identifier_hash if given ckan_identifier or just returns if given an identifier_hash
+      mod_archive = File.join([@dir, @mod_dir]) 
+      zip_path = File.join([mod_archive, "#{data[:identifier]}-#{data[:version]}.zip"]) 
 
-      Dir.mkdir(temp_dir) unless Dir.entries(@dir).include? @mod_dir #create dir for downloading zips into 
+      Dir.mkdir(mod_archive) unless Dir.entries(@dir).include? @mod_dir #create dir for downloading zips into 
 
       if File.exists?(zip_path) && !File.zero?(zip_path) #don't download if zip is already present
         msg "#{data[:identifier]}-#{data[:version]}.zip already downloaded".light_blue
@@ -232,28 +228,34 @@ module KerbalX
     alias downloaded download
 
 
+    #removes downloaded zips for a given mod (take identifier or identifier_hash). 
+    #pass in {:just => <version or array of versions>} to remove specific zips
+    #pass in {:keep => <version or array of versions>} to remove all but versions specified
     def remove_downloads_for identifier_hash, args = {}
-      data = identifier_hash.is_a?(String) ? latest_version_for(identifier_hash) : identifier_hash #select latest version from given identifier or use given identifier_hash
+      data = identifier_hash_for identifier_hash #returns latest version identifier_hash if given ckan_identifier or just returns if given an identifier_hash
       args[:keep] ||= [] #ensure :keep is not nil
       args[:keep] = [args[:keep]].flatten #ensure keep is an array.
+      mod_archive = File.join([@dir, @mod_dir]) 
+            
+      #set previous_versions to either what was passed in as args[:just] OR all versions except those in args[:keep]
+      previous_versions = args[:just] ? [args[:just]] : @data[data[:identifier]].map{|i| i[:version]} - args[:keep]
 
-      temp_dir = File.join([@dir, @mod_dir]) 
-
-      previous_versions = @data[data[:identifier]].map{|i| i[:version]} - args[:keep]
-      if args[:just]
-        previous_versions = [args[:just]]
-      end
+      #for the versions in previous_versions create file paths for the files that are present.
       to_remove = previous_versions.map do |previous_version|
-        File.join([temp_dir, "#{data[:identifier]}-#{previous_version}.zip"]) 
-      end.select do |path|
-        File.exists?(path) #&& !File.zero?(path)
-      end
-      unless to_remove.empty?
-        msg "Removing unneeded downloads:".light_blue
-        to_remove.each do |old_path|
-          msg "\tremoving #{old_path}".light_blue
-          File.delete(old_path)
+        File.join([mod_archive, "#{data[:identifier]}-#{previous_version}.zip"]) 
+      end.select{|path| File.exists?(path) }      
+
+      #remote the files
+      begin
+        unless to_remove.empty?
+          msg "Removing unneeded downloads:".light_blue
+          to_remove.each do |old_path|
+            msg "\tremoving #{old_path}".light_blue
+            File.delete(old_path)
+          end
         end
+      rescue
+        log_error "ERROR deleting downloads for #{data[:identifier]}".red
       end
     end
 
@@ -262,7 +264,7 @@ module KerbalX
     #opens a corresponding zip (which should have been downloaded by self.download) and unpacks just the .cfg files into a GameData folder in @dir
     #returns an array of paths to the unpacked cfg files to be used in read_parts_from
     def unpack identifier_hash
-      data = identifier_hash.is_a?(String) ? latest_version_for(identifier_hash) : identifier_hash #select latest version from given identifier or use given identifier_hash
+      data = identifier_hash_for identifier_hash #returns latest version identifier_hash if given ckan_identifier or just returns if given an identifier_hash
       zip_name = "#{data[:identifier]}-#{data[:version]}.zip"
       msg "Unpacking #{zip_name}"
       unpacked_cfg_paths = []
@@ -372,6 +374,12 @@ module KerbalX
     def versions_for identifier
       read_ckan_info_from unless @data
       @data[identifier].sort_by_version{|m| m[:version] }.map{|v| v[:version]}
+    end
+
+    #takes either a ckan_identifier (ie "B9") or an identifier_hash.  If identifier_hash is given it is simply returned
+    #if ckan_identifier is given it will return the identifier_hash for the lastest version of that mod
+    def identifier_hash_for identifier_hash
+      identifier_hash.is_a?(String) ? latest_version_for(identifier_hash) : identifier_hash #select latest version from given identifier or use given identifier_hash
     end
 
     #simple lookup for partial identifier, returns any identifier keys that contain the given value
