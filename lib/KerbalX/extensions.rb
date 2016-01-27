@@ -32,10 +32,10 @@ class Array
     self.nil? || self.empty?
   end
 
-  def sort_v    
-    puts "\n\nsorting #{self}"
-
+  def sort_by_version &blk
     self.sort_by do |version|
+      version = yield(version) if block_given? 
+
       #get epoch value. 
       v = version.split(":")
       epoch = v.size > 1 ? v.first.to_i : 0 #if the version contains a : take value before : to be epoch otherwise epoch is 0
@@ -45,13 +45,13 @@ class Array
       cycle = v.include?("alpha") ? 0 : (v.include?("beta") ? 1 : 2) #score alpha as 0, beta as 1 and everything else as 2
       v = v.gsub("alpha", "").gsub("beta", "") #remove alpha and beta tags from version
 
-      a = v.split(/[\d|\W]/)
-      a = [""] if a.empty?
-      n = v.split(/\D/).map{|i| i.to_i unless i.empty?}.compact
+      a = v.split(/[\d|\W]/)  #take the alpha compnent of the version
+      a = [""] if a.empty?    #if there is no alpha compnent make it a single empty string
+      n = v.split(/\D/).map{|i| i.to_i unless i.empty?}.compact #take the numeric compnent of the version
       
-      sort_key = [epoch, cycle, n, a]
-      puts sort_key.inspect
-      sort_key
+      #array will be sorted, first by epoch, then by cycle (alpha, beta, production), then by the numerical component and 
+      #finally by any string component
+      [epoch, cycle, n, a] 
     end  
   end
 

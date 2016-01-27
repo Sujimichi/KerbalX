@@ -42,11 +42,7 @@ module KerbalX
       @halt_on_error = false
       @mod_dir= "ModArchive"#Folder were mod zips are downloaded into
       @site_interface = args[:interface]
-
       load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew.
-
-
-      $version_sort_override ||= JSON.parse(File.open( File.join([@dir, "version_exceptions.json"]), "r"){|f| f.readlines}.join) rescue {}
     end
 
 
@@ -230,29 +226,23 @@ module KerbalX
     #methods to handled fetching and unpacking a mod
     #and extracting part name info from it
 
+
     #Get the latest data (name, version, download_url) for a given identifier
     def latest_version_for identifier
       read_ckan_info_from unless @data  #ensure @data is present
       mod = @data[identifier]           #select array of info for given identifier    
       return log_error "#{identifier} was not found in ckan data" unless mod    
       #sort by version and return last element. see comments on sortable_version method for sort process.
-
-      override = $version_sort_override.keys.select{|k| identifier.include?(k)}.first
-      if override
-        mod.select{|m| m[:version].include?($version_sort_override[override])}.first
-      else      
-        mod.sort_by{|m| sortable_version m[:version] }.last
-      end
-      #.select{|m| not m[:version].downcase.eql?("deprecated")}.last #ignore deprecated versions
+      mod.sort_by_version{|m| m[:version] }.last
     end
 
+    
     #takes a hash with the keys :url, :identifier and :version and downloads the zip from the url and stores it accorder to :identifier and :version 
     #OR when given a string (an identifier) will lookup the latest version from CKAN-meta data and then download and store that.
     def download identifier_hash
       data = identifier_hash.is_a?(String) ? latest_version_for(identifier_hash) : identifier_hash #select latest version from given identifier or use given identifier_hash
       temp_dir = File.join([@dir, @mod_dir]) 
       zip_path = File.join([temp_dir, "#{data[:identifier]}-#{data[:version]}.zip"]) 
-
 
       Dir.mkdir(temp_dir) unless Dir.entries(@dir).include? @mod_dir #create dir for downloading zips into 
 
@@ -269,11 +259,11 @@ module KerbalX
           log_error "download of #{data[:url]} failed, zip was 0 bytes".red
         end
       end
-
       remove_downloads_for data, :keep => data[:version]
       return identifier_hash
     end
     alias downloaded download
+
 
     def remove_downloads_for identifier_hash, args = {}
       data = identifier_hash.is_a?(String) ? latest_version_for(identifier_hash) : identifier_hash #select latest version from given identifier or use given identifier_hash
@@ -299,6 +289,7 @@ module KerbalX
         end
       end
     end
+
 
     #takes a hash with :identifier and :version keys or an identifier string (in which case the latest version is used. 
     #opens a corresponding zip (which should have been downloaded by self.download) and unpacks just the .cfg files into a GameData folder in @dir
@@ -368,6 +359,7 @@ module KerbalX
       end.flatten.compact
     end
 
+
     #Resolve situation where a part is found to be present in more than one mod.
     #The first method used is to fetch info from KerbalX about known parts and which mods they belong to on the site
     #That is then used to make the choice of which mod to add the part to.
@@ -403,12 +395,16 @@ module KerbalX
       return nil
     end
 
+
+
+
     ##~~Helper Methods~~##
+    #
 
     #Helper method, not used in main logic, just for doing a quick lookup of available versions for given identifier
     def versions_for identifier
       read_ckan_info_from unless @data
-      @data[identifier].sort_by{|m| sortable_version m[:version] }.map{|v| v[:version]}
+      @data[identifier].sort_by_version{|m| m[:version] }.map{|v| v[:version]}
     end
 
     #simple lookup for partial identifier, returns any identifier keys that contain the given value
@@ -517,6 +513,7 @@ module KerbalX
     # ["R5.2.8", "R5.2.6", "R5.2.7"  ].sort_by{|i| sortable_version(i)} => ["R5.2.6", "R5.2.7", "R5.2.8"]
     # ["0.1", "0.1.2-fixed", "0.1.2" ].sort_by{|i| sortable_version(i)} => ["0.1", "0.1.2", "0.1.2-fixed"] 
     def sortable_version version
+      raise "DEPRICATED - use ['v1', 'v2'].sort_by_version || [{:v => 'v1'}, {;v => 'v2'}].sort_by_version{|i| i[:v]}"
       #get epoch value. 
       v = version.split(":")
       epoch = v.size > 1 ? v.first.to_i : 0 #if the version contains a : take value before : to be epoch otherwise epoch is 0

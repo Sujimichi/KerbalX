@@ -3,7 +3,7 @@ require 'spec_helper'
 
 class Array
   def sorted_to? assertion
-    s = self.sort_by{|i| $reader.send(:sortable_version, i) } 
+    s = self.sort_by_version
     if s == assertion
       return true
     else
@@ -38,13 +38,9 @@ describe KerbalX::CkanReader do
 
     it "should know the latest version for some exceptional(ly stupid) versions" do 
 
-      $version_sort_override = {
-        "CrewQueue" => "1-1.1.0"
-      }
-
       a = ["CrewQueue-ksp1.0_release1.ckan", "CrewQueue-1-1.1.0.ckan", "CrewQueue-ksp1.0_release2.ckan", "CrewQueue-1-ksp1.0_r2.ckan", "CrewQueue-ksp1.0_r2.ckan"] 
 
-      a.sort_by{|i| $reader.send(:sortable_version, i) }.last.should == "CrewQueue-1-1.1.0.ckan" 
+      a.sort_by_version.last.should == "CrewQueue-1-1.1.0.ckan" 
 
     end
    

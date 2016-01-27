@@ -26,8 +26,10 @@ describe "extensions" do
 
   describe "sorting by version number" do 
 
-
-    @data = [
+    #array of arrays of version numbers SORTED CORRECTLY
+    #before each test the array of version numbers will be sorted by random and the assertion is they should 
+    #end up as they are here once sort_by_version is called.
+    [
       ["0.30", "1:v0.30"],
       ["R5.2.6", "R5.2.7", "R5.2.8"],
       ["v8.0", "8.1", "v8.1", "v10.0"],
@@ -35,55 +37,25 @@ describe "extensions" do
       [ "1.4", "Version_1.4.1", "1.4.2", "1.5", "v1.5.1"],
       ["7-4", "1:EVE-1.05-1", "1:EVE-1.05-2", "1:EVE-1.05-3", "1:EVE-1.05-4"],       
       ["ksp1.0_release1", "ksp1.0_r2", "ksp1.0_release2", "1:ksp1.0_r2","1:1.1.0"],
+      ["Alpha_1.7c", "Beta_1.8g", "Beta_1.9a", "Beta_1.9f", "Beta_19.b", "1.9g", "1:1.9g"],
+      ["foo-alpha-1.0.2", "foo-alpha-1.0.3", "foo-beta-1.0.1", "foo-beta-1.0.2", "foo-1.0.0"],
       ["v1.0.1-alpha", "v1.0.2-alpha", "v1.0.3-alpha", "v1.0.3-alpha-fix2", "v1.0.4-alpha", "v1.0.4b-alpha", "v1.0.5", "v1.0.6"],
-      ["KerbalXMAS-1.0.ckan", "KerbalXMAS-1.001.ckan", "KerbalXMAS-1.03.ckan", "KerbalXMAS--1.05a.ckan", "KerbalXMAS-1.031.ckan", "KerbalXMAS-1.032.ckan", "KerbalXMAS-1.046.ckan", "KerbalXMAS-1.51.ckan"],
-
-      ["foo-alpha-1.0.2", "foo-alpha-1.0.3", "foo-beta-1.0.1", "foo-beta-1.0.2", "foo-1.0.0"]
-    ]
-    $data = @data
-
-    @data.each do |test| 
+      ["KerbalXMAS-1.0.ckan", "KerbalXMAS-1.001.ckan", "KerbalXMAS-1.03.ckan", "KerbalXMAS--1.05a.ckan", "KerbalXMAS-1.031.ckan", "KerbalXMAS-1.032.ckan", "KerbalXMAS-1.046.ckan", "KerbalXMAS-1.51.ckan"]       
+    ].each do |test| 
 
       it "should sort array of version numbers to #{test}" do 
         unsorted = test.sort_by{rand}
-        unsorted.sort_v.should == test      
+        unsorted.sort_by_version.should == test      
+      end
+
+      it "should sort an array of objects with version numbers #{test}" do
+        test = test.map{|v| {:version => v, :foo => :bar} }
+        unsorted = test.sort_by{rand}
+        unsorted.sort_by_version{|o| o[:version] }.should == test             
       end
 
     end
   
-    it 'should simple test' do
-      a = ["foo-alpha-1.0.2", "foo-alpha-1.0.3", "foo-Beta-1.0.1", "foo-beta-1.0.2", "foo-1.0.0"]
-      a.reverse.sort_v.should == a
-    end
-
   end
 
-
-
-
-=begin
-  describe "sort_by_version" do 
-
-
-    it('should sort versions'){ ["R5.2.8", "R5.2.6", "R5.2.7"  ].sort_by_version.should == ["R5.2.6", "R5.2.7", "R5.2.8"] }
-    
-    it('should sort versions'){ ["0.1", "0.1.2-fixed", "0.1.2" ].sort_by_version.should == ["0.1", "0.1.2", "0.1.2-fixed"] }
-
-    it('should sort versions'){ ["8.1", "v10.0", "v8.1", "v8.0"].sort_by_version.should == ["v8.0", "v8.1", "8.1", "v10.0"] }
-
-    it('should sort versions'){ ["foo-alpha-1.0.2", "foo-beta-1.0.2", "foo-alpha-1.0.3", "foo-1.0.0", "foo-beta-1.0.1"].sort_by_version.should == ["foo-alpha-1.0.2", "foo-alpha-1.0.3", "foo-beta-1.0.1", "foo-beta-1.0.2", "foo-1.0.0"] }
-
-    it('should sort versions'){ ["KerbalXMAS-1.031.ckan", "KerbalXMAS-1.03.ckan", "KerbalXMAS-1.51.ckan", "KerbalXMAS--1.05a.ckan", "KerbalXMAS-1.046.ckan", "KerbalXMAS-1.032.ckan", "KerbalXMAS-1.001.ckan", "KerbalXMAS-1.0.ckan"].sort_by_version.should == ["KerbalXMAS-1.0.ckan", "KerbalXMAS-1.001.ckan", "KerbalXMAS-1.03.ckan", "KerbalXMAS--1.05a.ckan", "KerbalXMAS-1.031.ckan", "KerbalXMAS-1.032.ckan", "KerbalXMAS-1.046.ckan", "KerbalXMAS-1.51.ckan"] }
-
-    it "should know the latest version for some exceptional(ly stupid) versions" do 
-
-
-      a = ["CrewQueue-ksp1.0_release1.ckan", "CrewQueue-1-1.1.0.ckan", "CrewQueue-ksp1.0_release2.ckan", "CrewQueue-1-ksp1.0_r2.ckan", "CrewQueue-ksp1.0_r2.ckan"] 
-
-      a.sort_by_version.last.should == "CrewQueue-1-1.1.0.ckan"
-
-    end
-
-  end
-=end
 end
