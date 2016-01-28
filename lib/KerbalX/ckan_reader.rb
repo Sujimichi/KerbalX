@@ -24,9 +24,10 @@ module KerbalX
     require 'open-uri'
     require 'progressbar'
     require 'zip/zip'
+    require 'digest'
     require "KerbalX/extensions" unless [].respond_to?(:split)
 
-    attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error, :ignore_list
+    attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error, :ignore_list, :processed_mods
 
     def initialize args = {}
       defaults = {:dir => Dir.getwd, :activity_log => nil, :ckan_repo => "https://github.com/KSP-CKAN/CKAN-meta.git"}
@@ -45,6 +46,7 @@ module KerbalX
       @site_interface = args[:interface]    #instance of KerbalX::Interface which has been initialized with an auth-token
       load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew).
       load_ignore_list                      #read in list of mods which will be excluded from processing
+      @mod_data_checksum = nil
     end
 
 
@@ -105,6 +107,7 @@ module KerbalX
     def process subset = to_process, args = {}
       all_mods(subset){|identifier, reader| reader.process_identifier(identifier, args) }
       resolve_conflicts #remove duplicate instances of parts, ensure each part belongs to just one mod.
+      @processed_mods = subset
       return nil
     end
 
@@ -244,7 +247,7 @@ module KerbalX
         unless to_remove.empty?
           msg "Removing unneeded downloads:".light_blue
           to_remove.each do |old_path|
-            msg "\tremoving #{old_path}".light_blue
+            msg "\tremoving #{old_path.sub(mod_archive, "")}".light_blue
             File.delete(old_path)
           end
         end
@@ -327,8 +330,8 @@ module KerbalX
     #it to the first mod in the list.
     def resolve_conflicts
       msg "\nChecking for conflicting parts...."
+      return msg "@mod_data unchanged since last run, skipping conflict resolution" if @mod_data_checksum.eql?(Digest::SHA256.hexdigest(@mod_data.to_json))
       conflict_map = conflicting_parts
-
       return msg "No conflicts to resolve" if conflict_map.empty?
 
       msg "There are #{conflict_map.keys.size} conflicting parts to resolve"
@@ -351,7 +354,7 @@ module KerbalX
         msg "#{guess ? "[BY GUESS]".red : "[INFORMED]".blue} Resolving #{part}; assigning it to #{winning_mod}, removing it from #{conflicting_mods.join(", ")}"
         conflicting_mods.each{|mod| @mod_data[mod][:parts].delete(part) }
       end
-
+      @mod_data_checksum = Digest::SHA256.hexdigest(@mod_data.to_json)
       return nil
     end
 
@@ -397,6 +400,7 @@ module KerbalX
       @activity_log = {}
       @errors = []
       @message_log = []
+      @mod_data_checksum = nil
     end
 
     #find out if any parts exist in more than one mod.
@@ -466,6 +470,7 @@ module KerbalX
         data = data.map{|k,v| v.default_proc = default_proc; {k => v}}.inject{|i,j| i.merge(j)}
         data.default_proc = default_proc
         @mod_data = data
+        @mod_data_checksum = Digest::SHA256.hexdigest(@mod_data.to_json)
       end
     end
         
