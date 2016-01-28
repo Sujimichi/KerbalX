@@ -42,10 +42,10 @@ module KerbalX
       show_summary responses
     end
       
-    def update_knowledge_base_with_ckan_data ckan_data
+    def update_knowledge_base_with_ckan_data ckan_data, log = {}
       url = "#{@site}/knowledge_base/update"           
       print "\nsending CKAN data to #{@site}..."
-      response = transmit(url, :ckan_data => ckan_data)      
+      response = transmit(url, :ckan_data => ckan_data, :log => log)
       puts response.body
     end
 

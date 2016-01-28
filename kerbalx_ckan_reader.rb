@@ -29,15 +29,20 @@ KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
 
   ckan_reader = KerbalX::CkanReader.new :dir => @path, :interface => kerbalx
   
-  #ckan_reader.update_repo   #fetch updated info from CKAN repo
+  ckan_reader.update_repo   #fetch updated info from CKAN repo
   ckan_reader.load_mod_data #load mod data from previous runs
   ckan_reader.process       #download new/updated mods and read part info
   ckan_reader.save_mod_data #write current mod data to file
 
+  reader_log = {  #get log info to be sent up to KerbalX server    
+    :processed_mods => ckan_reader.processed_mods - ckan_reader.ignore_list, 
+    :messages => ckan_reader.message_log,
+    :errors => ckan_reader.errors, 
+  }
  
   #send data to KerbalX (using non-indented json)
   ckan_reader.pretty_json = false
-  #kerbalx.update_knowledge_base_with_ckan_data ckan_reader.json_data
+  kerbalx.update_knowledge_base_with_ckan_data ckan_reader.json_data, reader_log.to_json
 
   unless ckan_reader.errors.empty?
     puts "errors:\n"
