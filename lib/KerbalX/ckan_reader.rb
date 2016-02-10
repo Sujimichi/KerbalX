@@ -210,7 +210,7 @@ module KerbalX
         msg "#{data[:identifier]}-#{data[:version]}.zip already downloaded".light_blue
       else
         #download url and store as a zip named according to indentifier
-        msg "Downloading #{data[:identifier]} version: #{data[:version]} - (#{versions_for(data[:identifier])})"
+        msg "Downloading #{data[:identifier]} version: #{data[:version]}"
         pbar = nil
         open(zip_path, 'wb'){|file| file.print open(data[:url], progress_bar(pbar)).read  }
         msg "\n"

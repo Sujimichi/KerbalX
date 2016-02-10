@@ -1,9 +1,8 @@
 #This script runs the CKAN-meta reading actions
 #under construction, testing, not for general consumption, if swallowed seek medical attention.
 
-testing = true
 
-if testing
+=begin
   require File.join(File.dirname(__FILE__), "lib", "KerbalX", "version")      #version info
   require File.join(File.dirname(__FILE__), "lib", "KerbalX", "extensions")   #adds some rails methods (ie .blank?) to core classes (String, Array and NilClass).
   require File.join(File.dirname(__FILE__), "lib", "KerbalX", "part_parser")  #main part reading logic
@@ -12,15 +11,15 @@ if testing
   require File.join(File.dirname(__FILE__), "lib", "KerbalX", "interface")    #interface with KerbalX.com
   require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ignore_file")  #read any user deifned mods to be ignored
   require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ckan_reader")  
-else
-  require 'KerbalX'
-end
+=end
+
+require 'KerbalX'
 
 
 puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
-@site = "http://localhost:3000"
-#@site = "http://kerbalx.com"
+#@site = "http://localhost:3000"
+@site = "http://kerbalx.com"
 #@site = "http://kerbalx-stage.herokuapp.com"
 
 @path = "/home/sujimichi/coding/lab/KerbalX-CKAN" || Dir.getwd
@@ -35,9 +34,9 @@ KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
   ckan_reader.save_mod_data #write current mod data to file
 
   reader_log = {  #get log info to be sent up to KerbalX server    
-    :processed_mods => ckan_reader.processed_mods - ckan_reader.ignore_list, 
-    :messages => ckan_reader.message_log,
-    :errors => ckan_reader.errors, 
+    :errors => ckan_reader.errors,
+    :processed_mods => ckan_reader.processed_mods - ckan_reader.ignore_list,
+    :reader_log => ckan_reader.message_log
   }
  
   #send data to KerbalX (using non-indented json)
