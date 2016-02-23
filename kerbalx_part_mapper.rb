@@ -14,8 +14,8 @@ require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ignore_file")  #rea
 
 puts "\nPartMapper for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
-@site = "http://localhost:3000"
-#@site = "http://kerbalx.com"
+#@site = "http://localhost:3000"
+@site = "https://kerbalx.com"
 #@site = "http://kerbalx-stage.herokuapp.com"
 
 @path = "/home/sujimichi/KSP/KSP_linux" || Dir.getwd

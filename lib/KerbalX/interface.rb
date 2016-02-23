@@ -104,6 +104,7 @@ module KerbalX
       http = Net::HTTP.new(uri.host, uri.port)
       request = Net::HTTP::Post.new(uri.request_uri)
       http.read_timeout = 10000
+      http.use_ssl = true if URI.parse(url).scheme.eql?("https")
       data.merge! @token.to_hash
       data.merge! :version => KerbalX::VERSION
 

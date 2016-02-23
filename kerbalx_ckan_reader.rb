@@ -19,7 +19,7 @@ require 'KerbalX'
 puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 
 #@site = "http://localhost:3000"
-@site = "http://kerbalx.com"
+@site = "https://kerbalx.com"
 #@site = "http://kerbalx-stage.herokuapp.com"
 
 @path = "/home/sujimichi/coding/lab/KerbalX-CKAN" || Dir.getwd
