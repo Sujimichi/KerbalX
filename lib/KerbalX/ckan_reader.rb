@@ -22,6 +22,7 @@ module KerbalX
   class CkanReader
     require 'json'
     require 'open-uri'
+    require 'open_uri_redirections'
     require 'progressbar'
     require 'zip/zip'
     require 'digest'
@@ -212,7 +213,9 @@ module KerbalX
         #download url and store as a zip named according to indentifier
         msg "Downloading #{data[:identifier]} version: #{data[:version]}\nfrom: #{URI.parse(data[:url]).host}"
         pbar = nil
-        open(zip_path, 'wb'){|file| file.print open(data[:url], progress_bar(pbar)).read  }
+        open_uri_options = progress_bar(pbar)
+        open_uri_options.merge!(:allow_redirections => :all) if URI.parse(data[:url]).host.eql?("spacedock.info")
+        open(zip_path, 'wb'){|file| file.print open(data[:url], open_uri_options).read  }
         msg "\n"
         if File.zero?(zip_path)
           File.delete(zip_path)
