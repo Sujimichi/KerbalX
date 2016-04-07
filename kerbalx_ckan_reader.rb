@@ -22,7 +22,8 @@ puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n"
 @site = "https://kerbalx.com"
 #@site = "http://kerbalx-stage.herokuapp.com"
 
-@path = "/home/sujimichi/coding/lab/KerbalX-CKAN" || Dir.getwd
+#@path = "/home/sujimichi/coding/lab/KerbalX-CKAN" 
+@path = Dir.getwd
 
 KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
 
