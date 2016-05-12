@@ -28,7 +28,7 @@ module KerbalX
     require 'digest'
     require "KerbalX/extensions" unless [].respond_to?(:split)
 
-    attr_accessor :files, :data, :mod_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error, :ignore_list, :processed_mods
+    attr_accessor :files, :data, :mod_data, :part_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error, :ignore_list, :processed_mods
 
     def initialize args = {}
       defaults = {:dir => Dir.getwd, :activity_log => nil, :ckan_repo => "https://github.com/KSP-CKAN/CKAN-meta.git"}
@@ -37,6 +37,7 @@ module KerbalX
       @ckan_repo = args[:ckan_repo]         #address for the CKAN repo on github
       @repo = "CKAN-meta"                   #name of the CKAN repo's folder
       @mod_data = {}                        #store for resultant info of mods and their parts
+      @part_data= {}                        #srore for part variable data
       @errors = []                          #store for tracking errors during run
       @message_log = []                     #log of running messages
       @verbose = false                      #if true then show extra warnings (ie when files in GameData are being replaced)
@@ -95,7 +96,10 @@ module KerbalX
           {} #in case of error return an empty hash
         end
       end.group_by{|ckan_data| ckan_data[:identifier]} #group the array into a hash indexed by the unique identifier value
+      @data["Squad"] = [{:identifier => "Squad", :name => "Squad", :url => "", :version => "1.1.2", :status => nil}] #inject ckan like data for Stock parts, requires that the stock (Squad) game data folder is present in accordingly named zip in the mod archive (ie Squad-1.1.2.zip) 
+      @data
     end
+
     alias read_ckan_info read_ckan_info_from
 
 
@@ -138,6 +142,7 @@ module KerbalX
         #I love Ruby!! The identifier key is passed to downloaded (alias for download) which downloads the zip unless it's already present
         #either way download returns the identifier data and passes that to unpacked (alias for unpack) which extracts just the .cfg files
         #unpack returns an Array of paths to the cfg files which are passed to read_parts_from which scans them and returns an array of part names       
+        @identifier = identifier #set identifier as @var so it's accessible in read_parts_from
         parts = read_parts_from unpacked downloaded identifier 
         
         #getting the most common root_dir is the best guess at the name PartMapper will have found for a mod and therefore what it will be called on KerbalX
@@ -191,7 +196,11 @@ module KerbalX
     #Get the latest data (name, version, download_url) for a given identifier
     def latest_version_for identifier
       read_ckan_info_from unless @data  #ensure @data is present
-      mod = @data[identifier]           #select array of info for given identifier    
+      if identifier == "Squad"
+        mod = [{:identifier => "Squad", :name => "Squad", :url => "", :version => "1.1.2", :status => nil}]
+      else
+        mod = @data[identifier]           #select array of info for given identifier    
+      end
       return log_error "#{identifier} was not found in ckan data" unless mod    
       #sort by version and return last element. see comments on sortable_version method for sort process.
       mod.sort_by_version{|m| m[:version] }.last
@@ -316,13 +325,104 @@ module KerbalX
           #find the root folder inside GameData that the cfg is in (this will be the name that KerbalX knows the mod as, due to the way the PartMapper tool works)
           @root_dirs << cfg_path.split("GameData/").last.split("/").first 
           cfg.split(first_significant_line).map do |sub_component| #this deals with the case of a cfg file containing multiple parts
-            name = sub_component.select{|line| line.include?("name =")}.first #find the first instance of attribute "name" and return value
-            name = name.sub("name = ","").strip.sub("@",'').chomp unless name.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
-            next if name.blank?
-            name.gsub("_",".") #part names need to be as they appear in craft files, '_' is used in the cfg but is replaced with '.' in craft files
+            read_part_variables sub_component
+            
+            #name = sub_component.select{|line| line.include?("name =")}.first #find the first instance of attribute "name" and return value
+            #name = name.sub("name = ","").strip.sub("@",'').chomp unless name.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
+            #next if name.blank?            
+            #name.gsub("_",".") #part names need to be as they appear in craft files, '_' is used in the cfg but is replaced with '.' in craft files
           end
         end
       end.flatten.compact.uniq
+    end
+
+    def read_part_variables part
+      part_name = part.select{|line| line.include?("name =")}.first #find the first instance of attribute "name" and return value
+      part_name = part_name.sub("name = ","").strip.sub("@",'').chomp unless part_name.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
+      return nil if part_name.blank?
+
+      part_name = part_name.gsub("_",".") #part names need to be as they appear in craft files, '_' is used in the cfg but is replaced with '.' in craft files
+      
+      @part_data[@identifier] ||= {}
+      @part_data[@identifier][part_name] = {}
+
+      ["cost", "mass", "category", "CrewCapacity", "TechRequired"].each do |var|
+        val = part.select{|line| line.include?("#{var} =")}.first 
+        val = val.sub("#{var} = ","").strip.sub("@",'').chomp unless val.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
+        val = val.to_i if val.to_i.to_s.eql?(val)
+        val = val.to_f if val.to_f.to_s.eql?(val)
+
+        @part_data[@identifier][part_name][var] = val unless val.nil?
+      end
+
+      part_string = part.map{|line| line.strip}.join("\n")
+      if part_string.include?("ModuleEngines") 
+
+        engine_modules = get_part_modules(part, "MODULE").select{|m| m.join.include?("ModuleEngines") }
+
+        engine_modules.each do |engine_module|
+          engine_id = engine_module.select{|l| l.match(/^engineID = /) }.first || "standard"
+          engine_id.sub!("engineID = ", "")
+
+        
+          if engine_module.join.include?("velCurve") || engine_module.join.include?("atmCurve")
+            @part_data[@identifier][part_name]["isp"] = {}
+            @part_data[@identifier][part_name]["isp"][engine_id] = nil
+          else
+            begin
+              atmo_curve = get_part_modules(engine_module, "atmosphereCurve").first
+              @part_data[@identifier][part_name]["isp"] = {}
+
+              @part_data[@identifier][part_name]["isp"][engine_id] = {
+                :vac => atmo_curve.select{|l| l.match(/^key = 0/) }.first.sub("key = 0 ", "").to_f,
+                :atmo =>atmo_curve.select{|l| l.match(/^key = 1/) }.first.sub("key = 1 ", "").to_f
+              }
+            rescue => e
+              log_error "failed to read ISP data for #{part_name}\n#{e}".red
+            end
+          end
+          
+        end  
+      
+
+      end
+
+      resources = get_part_modules part, "RESOURCE"
+      unless resources.empty?
+        @part_data[@identifier][part_name]["resources"] = {}
+        resources.each do |resource|
+          name = resource.select{|l| l.match(/^name/) }.first
+          name = name.sub("name = ","") if name
+          max_amount = resource.select{|l| l.match(/^maxAmount/) }.first
+          max_amount = max_amount.sub("maxAmount = ","").to_f if max_amount
+          @part_data[@identifier][part_name]["resources"][name] = max_amount
+        end
+      end
+     
+      
+      part_name
+    end
+
+    def get_part_modules part, module_name
+      brackets = 0
+      in_scope = false
+
+      sel = part.select{|line| 
+        if line.include?(module_name)
+          in_scope = true
+          brackets = 0
+          true
+        else
+          if in_scope            
+            brackets += 1 if line.include?("{")            
+            brackets -= 1 if line.include?("}")          
+            in_scope = false if brackets <= 0
+          end
+          brackets >= 1
+        end  
+      }
+      sel.join("\n").split("#{module_name}").map{|l| l.strip.split("\n").map{|i|i.strip}.select{|g| !g.blank?} }.select{|g| !g.blank?}
+      #.map{|l| l.gsub("{","").gsub("}","").strip.split("\n").map{|i|i.strip}}.select{|g| !g.blank?}
     end
 
 
@@ -340,6 +440,8 @@ module KerbalX
       msg "There are #{conflict_map.keys.size} conflicting parts to resolve"
       msg "fetching part info from #{@site_interface.remote_address}"
       kx_part_info = @site_interface.lookup_part_info conflict_map.keys
+      log_error "Failed to fetch data from #{@site_interface.site}".red if kx_part_info.keys == ["error"]
+      msg "processing conflicting parts"
 
       conflict_map.each do |part, conflicting_mods|     
         winning_mod = nil
@@ -347,8 +449,8 @@ module KerbalX
 
         guess = true
         if !part_info.nil? && part_info.keys.include?("mod")
-          mod_on_kx = part_info["mod"]["ckan_identifier"]
-          winning_mod = conflicting_mods.select{|m| m.eql?(mod_on_kx)}.first
+          mod_on_kx = part_info["mod"]["ckan_identifier"] || part_info["mod"]["name"]
+          winning_mod = conflicting_mods.select{|m| m.downcase.eql?(mod_on_kx.downcase)}.first
           guess = false unless winning_mod.nil?
         end
         winning_mod ||= conflicting_mods.first
