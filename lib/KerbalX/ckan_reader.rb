@@ -241,6 +241,8 @@ module KerbalX
     #pass in {:just => <version or array of versions>} to remove specific zips
     #pass in {:keep => <version or array of versions>} to remove all but versions specified
     def remove_downloads_for identifier_hash, args = {}
+      msg "SKIPPING REMOVAL".red
+      return false
       data = identifier_hash_for identifier_hash #returns latest version identifier_hash if given ckan_identifier or just returns if given an identifier_hash
       args[:keep] ||= [] #ensure :keep is not nil
       args[:keep] = [args[:keep]].flatten #ensure keep is an array.
@@ -325,17 +327,13 @@ module KerbalX
           #find the root folder inside GameData that the cfg is in (this will be the name that KerbalX knows the mod as, due to the way the PartMapper tool works)
           @root_dirs << cfg_path.split("GameData/").last.split("/").first 
           cfg.split(first_significant_line).map do |sub_component| #this deals with the case of a cfg file containing multiple parts
-            read_part_variables sub_component
-            
-            #name = sub_component.select{|line| line.include?("name =")}.first #find the first instance of attribute "name" and return value
-            #name = name.sub("name = ","").strip.sub("@",'').chomp unless name.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
-            #next if name.blank?            
-            #name.gsub("_",".") #part names need to be as they appear in craft files, '_' is used in the cfg but is replaced with '.' in craft files
+            read_part_variables sub_component #collect certain variables from part and return part's name            
           end
         end
       end.flatten.compact.uniq
     end
 
+    #parse craft file for certain variables which are stored in @part_data and part name is returned
     def read_part_variables part
       part_name = part.select{|line| line.include?("name =")}.first #find the first instance of attribute "name" and return value
       part_name = part_name.sub("name = ","").strip.sub("@",'').chomp unless part_name.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
@@ -351,19 +349,15 @@ module KerbalX
         val = val.sub("#{var} = ","").strip.sub("@",'').chomp unless val.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
         val = val.to_i if val.to_i.to_s.eql?(val)
         val = val.to_f if val.to_f.to_s.eql?(val)
-
         @part_data[@identifier][part_name][var] = val unless val.nil?
       end
 
       part_string = part.map{|line| line.strip}.join("\n")
       if part_string.include?("ModuleEngines") 
-
         engine_modules = get_part_modules(part, "MODULE").select{|m| m.join.include?("ModuleEngines") }
-
         engine_modules.each do |engine_module|
           engine_id = engine_module.select{|l| l.match(/^engineID = /) }.first || "standard"
           engine_id.sub!("engineID = ", "")
-
         
           if engine_module.join.include?("velCurve") || engine_module.join.include?("atmCurve")
             @part_data[@identifier][part_name]["isp"] = {}
@@ -380,11 +374,8 @@ module KerbalX
             rescue => e
               log_error "failed to read ISP data for #{part_name}\n#{e}".red
             end
-          end
-          
+          end         
         end  
-      
-
       end
 
       resources = get_part_modules part, "RESOURCE"
@@ -398,8 +389,6 @@ module KerbalX
           @part_data[@identifier][part_name]["resources"][name] = max_amount
         end
       end
-     
-      
       part_name
     end
 
@@ -422,7 +411,6 @@ module KerbalX
         end  
       }
       sel.join("\n").split("#{module_name}").map{|l| l.strip.split("\n").map{|i|i.strip}.select{|g| !g.blank?} }.select{|g| !g.blank?}
-      #.map{|l| l.gsub("{","").gsub("}","").strip.split("\n").map{|i|i.strip}}.select{|g| !g.blank?}
     end
 
 
@@ -554,14 +542,31 @@ module KerbalX
     end
 
     #write @mod_data to disk as json string
-    def save_mod_data
-      File.open(File.join([@dir,"mod_data.json"]), "w"){|f| f.write make_json(@mod_data) }      
+    def save_mod_data      
+      save_json_file "mod_data", @mod_data
+    end
+    
+    def save_part_data
+      save_json_file "part_data", @part_data
     end
 
     #Load mod_data from file and add a poor-man's HashWithIndifferentAccess
     def load_mod_data
+      load_indifferent_access_hash_from_json_file "mod_data"
+    end
+
+    def load_part_data
+      load_indifferent_access_hash_from_json_file "part_data"
+    end
+
+
+    def save_json_file file_name, data
+      File.open(File.join([@dir,"#{file_name}.json"]), "w"){|f| f.write make_json(data) }
+    end
+
+    def load_indifferent_access_hash_from_json_file file_name
       begin
-        data = JSON.parse(File.open(File.join([@dir,"mod_data.json"]), "r"){|f| f.readlines }.join)
+        data = JSON.parse(File.open(File.join([@dir,"#{file_name}.json"]), "r"){|f| f.readlines }.join)
       rescue
         msg "No mod_data file to load"
       end
@@ -574,8 +579,8 @@ module KerbalX
         end 
         data = data.map{|k,v| v.default_proc = default_proc; {k => v}}.inject{|i,j| i.merge(j)}
         data.default_proc = default_proc
-        @mod_data = data
-        @mod_data_checksum = Digest::SHA256.hexdigest(@mod_data.to_json)
+        instance_variable_set("@#{file_name}", data)
+        instance_variable_set("@#{file_name}_checksum", Digest::SHA256.hexdigest(@mod_data.to_json))
       end
     end
         
@@ -583,6 +588,7 @@ module KerbalX
     def load_ignore_list
       @ignore_list = JSON.parse(File.open(File.join([@dir, "ignore_list.json"]), 'r'){|f| f.readlines}.join) rescue []
     end
+
 
     
     private
