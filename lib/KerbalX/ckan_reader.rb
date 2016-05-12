@@ -220,10 +220,16 @@ module KerbalX
         msg "#{data[:identifier]}-#{data[:version]}.zip already downloaded".light_blue
       else
         #download url and store as a zip named according to indentifier
-        msg "Downloading #{data[:identifier]} version: #{data[:version]}\nfrom: #{URI.parse(data[:url]).host}"
+        host = URI.parse(data[:url]).host
+        msg "Downloading #{data[:identifier]} version: #{data[:version]}\nfrom: #{host}"
+        if host.eql?("kerbalstuff.com")
+          log_error "Skipping...KerbalStuff.com no longer exists".red
+          raise "missing host #{host}"
+        end
+        
         pbar = nil
         open_uri_options = progress_bar(pbar)
-        open_uri_options.merge!(:allow_redirections => :all) if URI.parse(data[:url]).host.eql?("spacedock.info")
+        open_uri_options.merge!(:allow_redirections => :all) if host.eql?("spacedock.info")
         open(zip_path, 'wb'){|file| file.print open(data[:url], open_uri_options).read  }
         msg "\n"
         if File.zero?(zip_path)
@@ -241,8 +247,6 @@ module KerbalX
     #pass in {:just => <version or array of versions>} to remove specific zips
     #pass in {:keep => <version or array of versions>} to remove all but versions specified
     def remove_downloads_for identifier_hash, args = {}
-      msg "SKIPPING REMOVAL".red
-      return false
       data = identifier_hash_for identifier_hash #returns latest version identifier_hash if given ckan_identifier or just returns if given an identifier_hash
       args[:keep] ||= [] #ensure :keep is not nil
       args[:keep] = [args[:keep]].flatten #ensure keep is an array.
@@ -259,6 +263,9 @@ module KerbalX
       #remote the files
       begin
         unless to_remove.empty?
+          msg "SKIPPING REMOVAL".red
+          return false
+          
           msg "Removing unneeded downloads:".light_blue
           to_remove.each do |old_path|
             msg "\tremoving #{old_path.sub(mod_archive, "")}".light_blue
@@ -345,40 +352,43 @@ module KerbalX
       @part_data[@identifier][part_name] = {}
 
       ["cost", "mass", "category", "CrewCapacity", "TechRequired"].each do |var|
-        val = part.select{|line| line.include?("#{var} =")}.first 
-        val = val.sub("#{var} = ","").strip.sub("@",'').chomp unless val.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
-        val = val.to_i if val.to_i.to_s.eql?(val)
-        val = val.to_f if val.to_f.to_s.eql?(val)
+        val = part.select{|line| !line.strip.match("^//") && line.include?("#{var} =")}.first 
+        val = val.sub("#{var} = ","").split("//").first.strip.sub("@",'').chomp unless val.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
+        if val && val.to_i.to_s.eql?(val)
+          val = val.to_i 
+        elsif val && "%.#{val.split(".").last.length}f" % val.to_f == val
+          val = val.to_f
+        end
         @part_data[@identifier][part_name][var] = val unless val.nil?
       end
 
       part_string = part.map{|line| line.strip}.join("\n")
       if part_string.include?("ModuleEngines") 
-        engine_modules = get_part_modules(part, "MODULE").select{|m| m.join.include?("ModuleEngines") }
+        engine_modules = get_part_modules(part, "MODULE").select{|m| m.join.include?("ModuleEngines") }.reverse #the reverse is so that the first instance of enigne info is processed last, so if there are module manager entries that change the engine performance, they are essentially ignored and just the stock values are kept.
+
+
         engine_modules.each do |engine_module|
           engine_id = engine_module.select{|l| l.match(/^engineID = /) }.first || "standard"
           engine_id.sub!("engineID = ", "")
-        
-          if engine_module.join.include?("velCurve") || engine_module.join.include?("atmCurve")
-            @part_data[@identifier][part_name]["isp"] = {}
+
+          @part_data[@identifier][part_name]["isp"] = {}
+          if engine_module.join.include?("velCurve") || engine_module.join.include?("atmCurve")       
             @part_data[@identifier][part_name]["isp"][engine_id] = nil
           else
             begin
-              atmo_curve = get_part_modules(engine_module, "atmosphereCurve").first
-              @part_data[@identifier][part_name]["isp"] = {}
-
-              @part_data[@identifier][part_name]["isp"][engine_id] = {
-                :vac => atmo_curve.select{|l| l.match(/^key = 0/) }.first.sub("key = 0 ", "").to_f,
-                :atmo =>atmo_curve.select{|l| l.match(/^key = 1/) }.first.sub("key = 1 ", "").to_f
-              }
+              atmo_curve = get_part_modules(engine_module, "atmosphereCurve").first        
+              @part_data[@identifier][part_name]["isp"][engine_id] = {}
+              @part_data[@identifier][part_name]["isp"][engine_id][:vac] = atmo_curve.select{|l| l.strip.match(/^key = 0/) }.first.strip.sub("key = 0 ", "").to_f #intentionall will throw error if no vac isp is found
+              atmo_isp= atmo_curve.select{|l| l.match(/^key = 1/) }.first #atmo isp may not be present for all engines
+              @part_data[@identifier][part_name]["isp"][engine_id][:atmo]= atmo_isp.sub("key = 1 ", "").to_f if atmo_isp
             rescue => e
-              log_error "failed to read ISP data for #{part_name}\n#{e}".red
+              log_error "failed to read ISP data for #{@identifier} - #{part_name}\n#{e}\n#{atmo_curve}\n".red
             end
           end         
         end  
       end
 
-      resources = get_part_modules part, "RESOURCE"
+      resources = get_part_modules(part, "RESOURCE").select{|r| r.join.include?("maxAmount")}
       unless resources.empty?
         @part_data[@identifier][part_name]["resources"] = {}
         resources.each do |resource|
@@ -386,6 +396,7 @@ module KerbalX
           name = name.sub("name = ","") if name
           max_amount = resource.select{|l| l.match(/^maxAmount/) }.first
           max_amount = max_amount.sub("maxAmount = ","").to_f if max_amount
+          
           @part_data[@identifier][part_name]["resources"][name] = max_amount
         end
       end
@@ -410,7 +421,7 @@ module KerbalX
           brackets >= 1
         end  
       }
-      sel.join("\n").split("#{module_name}").map{|l| l.strip.split("\n").map{|i|i.strip}.select{|g| !g.blank?} }.select{|g| !g.blank?}
+      sel.join("\n").split("#{module_name}").map{|l| l.strip.split("\n").map{|i|i.strip.sub("@","").sub("//","")}.select{|g| !g.blank?} }.select{|g| !g.blank?}
     end
 
 
