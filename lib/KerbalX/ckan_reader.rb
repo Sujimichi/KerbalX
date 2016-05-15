@@ -366,27 +366,58 @@ module KerbalX
       if part_string.include?("ModuleEngines") 
         engine_modules = get_part_modules(part, "MODULE").select{|m| m.join.include?("ModuleEngines") }.reverse #the reverse is so that the first instance of enigne info is processed last, so if there are module manager entries that change the engine performance, they are essentially ignored and just the stock values are kept.
 
+        #raise engine_modules.inspect if part_name == "RAPIER"
+
 
         engine_modules.each do |engine_module|
           engine_id = engine_module.select{|l| l.match(/^engineID = /) }.first || "standard"
           engine_id.sub!("engineID = ", "")
+          engine_data = {"isp" => {}, "propellant_ratios" => {}}
 
-          @part_data[@identifier][part_name]["isp"] = {}
+          #read ISP data - currently ignoring ISP data for jet engines
           if engine_module.join.include?("velCurve") || engine_module.join.include?("atmCurve")       
-            @part_data[@identifier][part_name]["isp"][engine_id] = nil
+            engine_data["isp"] = nil
           else
             begin
               atmo_curve = get_part_modules(engine_module, "atmosphereCurve").first        
-              @part_data[@identifier][part_name]["isp"][engine_id] = {}
-              @part_data[@identifier][part_name]["isp"][engine_id][:vac] = atmo_curve.select{|l| l.strip.match(/^key = 0/) }.first.strip.sub("key = 0 ", "").to_f #intentionall will throw error if no vac isp is found
-              atmo_isp= atmo_curve.select{|l| l.match(/^key = 1/) }.first #atmo isp may not be present for all engines
-              @part_data[@identifier][part_name]["isp"][engine_id][:atmo]= atmo_isp.sub("key = 1 ", "").to_f if atmo_isp
+              engine_data["isp"][:vac] = atmo_curve.select{|l| l.strip.match(/^key = 0/) }.first.strip.sub("key = 0 ", "").to_f #intentionall will throw error if no vac isp is found
+              atmo_isp= atmo_curve.select{|l| l.strip.match(/^key = 1/) }.first #atmo isp may not be present for all engines
+              engine_data["isp"][:atmo]= atmo_isp.strip.sub("key = 1 ", "").to_f if atmo_isp
             rescue => e
               log_error "failed to read ISP data for #{@identifier} - #{part_name}\n#{e}\n#{atmo_curve}\n".red
             end
-          end         
+          end        
+
+          #read propellant requirements for engine mode
+          props = get_part_modules(engine_module, "PROPELLANT")
+          begin
+            props.each do |prop|
+              name = prop.select{|l| l.strip.match(/^name/)}.first
+              ratio= prop.select{|l| l.strip.match(/^ratio/)}.first
+              name = name.strip.sub("name = ", "") if name
+              ratio= ratio.strip.sub("ratio = ", "").to_f if ratio
+              if name && ratio
+                engine_data["propellant_ratios"][name] = ratio
+              end              
+            end
+          rescue => e
+            log_error "failed to read Propellant data for #{@identifier} - #{part_name}\n#{e}\n#{props}\n".red
+          end
+
+          #read thrust data
+          begin
+            thrust = engine_module.select{|l| l.strip.match(/^maxThrust/)}.first.strip.sub("maxThrust = ", "")
+            engine_data["max_thrust"] = thrust.to_f
+          rescue
+            log_error "failed to read Thrust data for #{@identifier} - #{part_name}".red
+          end
+
+          @part_data[@identifier][part_name]["engine_data"] ||= {}
+          @part_data[@identifier][part_name]["engine_data"][engine_id] = engine_data
+
         end  
       end
+
 
       resources = get_part_modules(part, "RESOURCE").select{|r| r.join.include?("maxAmount")}
       unless resources.empty?
