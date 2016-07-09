@@ -579,27 +579,27 @@ module KerbalX
       end
     end
 
-    def json_data
-      make_json(@mod_data)
+    def json_data opt = :mod_data
+      if opt.to_s.downcase.include?("mod")
+        make_json(@mod_data)
+      elsif opt.to_s.downcase.include?("part")
+        make_json(@part_data)
+      end
     end
 
-    #write @mod_data to disk as json string
-    def save_mod_data      
+    #write mod and part data to json files 
+    def save_data
       save_json_file "mod_data", @mod_data
-    end
-    
-    def save_part_data
       save_json_file "part_data", @part_data
     end
 
-    #Load mod_data from file and add a poor-man's HashWithIndifferentAccess
-    def load_mod_data
+    #load mod and part data from files and set in @ variables with a poor-man's HashWithIndifferentAccess
+    def load_data
       load_indifferent_access_hash_from_json_file "mod_data"
-    end
-
-    def load_part_data
       load_indifferent_access_hash_from_json_file "part_data"
     end
+    
+    private
 
 
     def save_json_file file_name, data
@@ -622,7 +622,7 @@ module KerbalX
         data = data.map{|k,v| v.default_proc = default_proc; {k => v}}.inject{|i,j| i.merge(j)}
         data.default_proc = default_proc
         instance_variable_set("@#{file_name}", data)
-        instance_variable_set("@#{file_name}_checksum", Digest::SHA256.hexdigest(@mod_data.to_json))
+        instance_variable_set("@#{file_name}_checksum", Digest::SHA256.hexdigest(data.to_json))
       end
     end
         
@@ -630,10 +630,6 @@ module KerbalX
     def load_ignore_list
       @ignore_list = JSON.parse(File.open(File.join([@dir, "ignore_list.json"]), 'r'){|f| f.readlines}.join) rescue []
     end
-
-
-    
-    private
 
  
     #confguration for the download progress bar. If silent is true
