@@ -22,4 +22,11 @@ require 'KerbalX/ckan_reader'
 module KerbalX
   # Your code goes here...  
   # or not as the case may be
+
+  def self.root subdir = nil
+    path = File.expand_path '../..', __FILE__
+    return File.join( path, subdir) if subdir
+    path      
+  end  
+
 end

@@ -96,8 +96,34 @@ module KerbalX
       return info
     end
 
+    def parts_without_data
+      get("#{@site}/knowledge_base/parts_without_data").body
+    end
+
+    #poll site until site responds with ready (which will be after ckan_update delayed_job has completed
+    #takes block to perform once site is ready
+    def after_knowledge_base_update &blk
+      puts "waiting for knowledgebase update to complete"
+      until get("#{@site}/knowledge_base/wait_for_update").body.eql?("ready") do 
+        print "."
+        sleep(5)
+      end
+      puts "Update Complete"
+      yield     
+    end
+
 
     private
+
+    def get url
+      uri = URI.parse(url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      request = Net::HTTP::Get.new(uri.request_uri)
+      http.use_ssl = true if uri.scheme.eql?("https")
+
+      request.set_form_data(authorize)     
+      response = http.request(request)
+    end
 
     def send_data url, data = {}
       uri = URI.parse(url)
@@ -105,11 +131,15 @@ module KerbalX
       request = Net::HTTP::Post.new(uri.request_uri)
       http.read_timeout = 10000
       http.use_ssl = true if uri.scheme.eql?("https")
+
+      request.set_form_data(authorize(data))
+      response = http.request(request)
+    end
+
+    def authorize data = {}
       data.merge! @token.to_hash
       data.merge! :version => KerbalX::VERSION
-
-      request.set_form_data(data)
-      response = http.request(request)
+      data
     end
 
     def cautiously &blk

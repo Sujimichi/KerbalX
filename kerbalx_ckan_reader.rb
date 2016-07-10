@@ -30,9 +30,9 @@ KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
   ckan_reader = KerbalX::CkanReader.new :dir => @path, :interface => kerbalx
   
   ckan_reader.update_repo   #fetch updated info from CKAN repo
-  ckan_reader.load_mod_data #load mod data from previous runs
+  ckan_reader.load_data     #load mod data from previous runs
   ckan_reader.process       #download new/updated mods and read part info
-  ckan_reader.save_mod_data #write current mod data to file
+  ckan_reader.save_data     #write current mod data to file
 
   reader_log = {  #get log info to be sent up to KerbalX server    
     :errors => ckan_reader.errors,
@@ -42,7 +42,20 @@ KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
  
   #send data to KerbalX (using non-indented json)
   ckan_reader.pretty_json = false
-  kerbalx.update_knowledge_base_with_ckan_data ckan_reader.json_data, reader_log.to_json
+  kerbalx.update_knowledge_base_with_ckan_data ckan_reader.json_data(:mod_data), reader_log.to_json
+
+  kerbalx.after_knowledge_base_update do 
+    #fetch list of parts without part data
+    parts = kerbalx.parts_without_data
+
+    #find data for those parts
+    part_data = KerbalX::PartData.new(:reader => ckan_reader, :parts_without_data => parts)
+
+        
+    #send part data back to site.
+    
+
+  end
 
   unless ckan_reader.errors.empty?
     puts "errors:\n"

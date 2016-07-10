@@ -28,7 +28,8 @@ module KerbalX
     require 'digest'
     require "KerbalX/extensions" unless [].respond_to?(:split)
 
-    attr_accessor :files, :data, :mod_data, :part_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error, :ignore_list, :processed_mods
+    attr_accessor :files, :data, :mod_data, :part_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error, :processed_mods, :config, :mod_data_checksum
+    
 
     def initialize args = {}
       defaults = {:dir => Dir.getwd, :activity_log => nil, :ckan_repo => "https://github.com/KSP-CKAN/CKAN-meta.git"}
@@ -44,11 +45,15 @@ module KerbalX
       @silent = false                       #if true then DONT show text output 
       @pretty_json = true                   #if true then format JSON with whitespace and newlines
       @halt_on_error = false
+      @skip_removal = args[:skip_removal].to_s.eql?("true")
+      
       @mod_dir= "ModArchive"                #Folder were mod zips are downloaded into
       @site_interface = args[:interface]    #instance of KerbalX::Interface which has been initialized with an auth-token
       load_activity_log args[:activity_log] #prepare activity log (either initialize from given arg, or load from disk or create anew).
-      load_ignore_list                      #read in list of mods which will be excluded from processing
+      @processed_mods = []
       @mod_data_checksum = nil
+      @config = {}
+      load_config                           #read in options including list of mods which will be excluded from processing
     end
 
 
@@ -96,7 +101,9 @@ module KerbalX
           {} #in case of error return an empty hash
         end
       end.group_by{|ckan_data| ckan_data[:identifier]} #group the array into a hash indexed by the unique identifier value
-      @data["Squad"] = [{:identifier => "Squad", :name => "Squad", :url => "", :version => "1.1.2", :status => nil}] #inject ckan like data for Stock parts, requires that the stock (Squad) game data folder is present in accordingly named zip in the mod archive (ie Squad-1.1.2.zip) 
+      
+      #inject ckan like data for Stock parts, requires that the stock (Squad) game data folder is present in accordingly named zip in the mod archive (ie Squad-1.1.2.zip) 
+      @data["Squad"] = [{:identifier => "Squad", :name => "Squad", :url => "", :version => @config["ksp_version"], :status => nil}]       
       @data
     end
 
@@ -263,8 +270,10 @@ module KerbalX
       #remote the files
       begin
         unless to_remove.empty?
-          msg "SKIPPING REMOVAL".red
-          return false
+          if @skip_removal
+            msg "SKIPPING REMOVAL".red
+            return false
+          end
           
           msg "Removing unneeded downloads:".light_blue
           to_remove.each do |old_path|
@@ -334,126 +343,18 @@ module KerbalX
           #find the root folder inside GameData that the cfg is in (this will be the name that KerbalX knows the mod as, due to the way the PartMapper tool works)
           @root_dirs << cfg_path.split("GameData/").last.split("/").first 
           cfg.split(first_significant_line).map do |sub_component| #this deals with the case of a cfg file containing multiple parts
-            read_part_variables sub_component #collect certain variables from part and return part's name            
+            #read_part_variables sub_component #collect certain variables from part and return part's name            
+            part = KerbalX::PartData.new({:part => sub_component, :identifier => @identifier})
+            unless part.name.nil?
+              @part_data[@identifier] ||= {}
+              @part_data[@identifier][part.name] = part.attributes
+            end
+            part.name
           end
         end
       end.flatten.compact.uniq
     end
 
-    #parse craft file for certain variables which are stored in @part_data and part name is returned
-    def read_part_variables part
-      part_name = part.select{|line| line.include?("name =")}.first #find the first instance of attribute "name" and return value
-      part_name = part_name.sub("name = ","").strip.sub("@",'').chomp unless part_name.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
-      return nil if part_name.blank?
-
-      part_name = part_name.gsub("_",".") #part names need to be as they appear in craft files, '_' is used in the cfg but is replaced with '.' in craft files
-      
-      @part_data[@identifier] ||= {}
-      @part_data[@identifier][part_name] = {}
-
-      ["cost", "mass", "category", "CrewCapacity", "TechRequired"].each do |var|
-        val = part.select{|line| !line.strip.match("^//") && line.include?("#{var} =")}.first 
-        val = val.sub("#{var} = ","").split("//").first.strip.sub("@",'').chomp unless val.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
-        if val && val.to_i.to_s.eql?(val)
-          val = val.to_i 
-        elsif val && "%.#{val.split(".").last.length}f" % val.to_f == val
-          val = val.to_f
-        end
-        @part_data[@identifier][part_name][var] = val unless val.nil?
-      end
-
-      part_string = part.map{|line| line.strip}.join("\n")
-      if part_string.include?("ModuleEngines") 
-        engine_modules = get_part_modules(part, "MODULE").select{|m| m.join.include?("ModuleEngines") }.reverse #the reverse is so that the first instance of enigne info is processed last, so if there are module manager entries that change the engine performance, they are essentially ignored and just the stock values are kept.
-
-        #raise engine_modules.inspect if part_name == "RAPIER"
-
-
-        engine_modules.each do |engine_module|
-          engine_id = engine_module.select{|l| l.match(/^engineID = /) }.first || "standard"
-          engine_id.sub!("engineID = ", "")
-          engine_data = {"isp" => {}, "propellant_ratios" => {}}
-
-          #read ISP data - currently ignoring ISP data for jet engines
-          if engine_module.join.include?("velCurve") || engine_module.join.include?("atmCurve")       
-            engine_data["isp"] = nil
-          else
-            begin
-              atmo_curve = get_part_modules(engine_module, "atmosphereCurve").first        
-              engine_data["isp"][:vac] = atmo_curve.select{|l| l.strip.match(/^key = 0/) }.first.strip.sub("key = 0 ", "").to_f #intentionall will throw error if no vac isp is found
-              atmo_isp= atmo_curve.select{|l| l.strip.match(/^key = 1/) }.first #atmo isp may not be present for all engines
-              engine_data["isp"][:atmo]= atmo_isp.strip.sub("key = 1 ", "").to_f if atmo_isp
-            rescue => e
-              log_error "failed to read ISP data for #{@identifier} - #{part_name}\n#{e}\n#{atmo_curve}\n".red
-            end
-          end        
-
-          #read propellant requirements for engine mode
-          props = get_part_modules(engine_module, "PROPELLANT")
-          begin
-            props.each do |prop|
-              name = prop.select{|l| l.strip.match(/^name/)}.first
-              ratio= prop.select{|l| l.strip.match(/^ratio/)}.first
-              name = name.strip.sub("name = ", "") if name
-              ratio= ratio.strip.sub("ratio = ", "").to_f if ratio
-              if name && ratio
-                engine_data["propellant_ratios"][name] = ratio
-              end              
-            end
-          rescue => e
-            log_error "failed to read Propellant data for #{@identifier} - #{part_name}\n#{e}\n#{props}\n".red
-          end
-
-          #read thrust data
-          begin
-            thrust = engine_module.select{|l| l.strip.match(/^maxThrust/)}.first.strip.sub("maxThrust = ", "")
-            engine_data["max_thrust"] = thrust.to_f
-          rescue
-            log_error "failed to read Thrust data for #{@identifier} - #{part_name}".red
-          end
-
-          @part_data[@identifier][part_name]["engine_data"] ||= {}
-          @part_data[@identifier][part_name]["engine_data"][engine_id] = engine_data
-
-        end  
-      end
-
-
-      resources = get_part_modules(part, "RESOURCE").select{|r| r.join.include?("maxAmount")}
-      unless resources.empty?
-        @part_data[@identifier][part_name]["resources"] = {}
-        resources.each do |resource|
-          name = resource.select{|l| l.match(/^name/) }.first
-          name = name.sub("name = ","") if name
-          max_amount = resource.select{|l| l.match(/^maxAmount/) }.first
-          max_amount = max_amount.sub("maxAmount = ","").to_f if max_amount
-          
-          @part_data[@identifier][part_name]["resources"][name] = max_amount
-        end
-      end
-      part_name
-    end
-
-    def get_part_modules part, module_name
-      brackets = 0
-      in_scope = false
-
-      sel = part.select{|line| 
-        if line.include?(module_name)
-          in_scope = true
-          brackets = 0
-          true
-        else
-          if in_scope            
-            brackets += 1 if line.include?("{")            
-            brackets -= 1 if line.include?("}")          
-            in_scope = false if brackets <= 0
-          end
-          brackets >= 1
-        end  
-      }
-      sel.join("\n").split("#{module_name}").map{|l| l.strip.split("\n").map{|i|i.strip.sub("@","").sub("//","")}.select{|g| !g.blank?} }.select{|g| !g.blank?}
-    end
 
 
     #Resolve situation where a part is found to be present in more than one mod.
@@ -487,17 +388,21 @@ module KerbalX
 
         conflicting_mods.delete(winning_mod)
         msg "#{guess ? "[BY GUESS]".red : "[INFORMED]".blue} Resolving #{part}; assigning it to #{winning_mod}, removing it from #{conflicting_mods.join(", ")}"
-        conflicting_mods.each{|mod| @mod_data[mod][:parts].delete(part) }
+        conflicting_mods.each{|mod| 
+          @mod_data[mod][:parts].delete(part) #remove duplicate part from conflicting mod
+          @part_data[mod].delete(part) if @part_data[mod] #remote duplicate part (if it exists) from conflicting mod in part data
+        }
       end
       @mod_data_checksum = Digest::SHA256.hexdigest(@mod_data.to_json)
       return nil
     end
 
 
+    #return array of mod names from config.json which are to be ignored, or return empty array of none defined
+    def ignore_list
+      @config["ignore_list"] || []
+    end
 
-
-    ##~~Helper Methods~~##
-    #
 
     #Helper method, not used in main logic, just for doing a quick lookup of available versions for given identifier
     def versions_for identifier
@@ -599,6 +504,12 @@ module KerbalX
       load_indifferent_access_hash_from_json_file "part_data"
     end
     
+        
+    #list of mods to ignore, these are mods that are known to not contain any parts, or if they do contain parts they conflict with or completely include other mods
+    def load_config
+      @config = JSON.parse(File.open(File.join([@dir, "config.json"]), 'r'){|f| f.readlines}.join) rescue {"ksp_version" => "1.0.0"}
+    end
+    
     private
 
 
@@ -610,7 +521,7 @@ module KerbalX
       begin
         data = JSON.parse(File.open(File.join([@dir,"#{file_name}.json"]), "r"){|f| f.readlines }.join)
       rescue
-        msg "No mod_data file to load"
+        msg "No #{file_name} file to load"
       end
       if data
         default_proc = proc do |h, k|
@@ -624,11 +535,6 @@ module KerbalX
         instance_variable_set("@#{file_name}", data)
         instance_variable_set("@#{file_name}_checksum", Digest::SHA256.hexdigest(data.to_json))
       end
-    end
-        
-    #list of mods to ignore, these are mods that are known to not contain any parts, or if they do contain parts they conflict with or completely include other mods
-    def load_ignore_list
-      @ignore_list = JSON.parse(File.open(File.join([@dir, "ignore_list.json"]), 'r'){|f| f.readlines}.join) rescue []
     end
 
  
