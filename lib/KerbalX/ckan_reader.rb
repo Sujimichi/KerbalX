@@ -28,7 +28,8 @@ module KerbalX
     require 'digest'
     require "KerbalX/extensions" unless [].respond_to?(:split)
 
-    attr_accessor :files, :data, :mod_data, :part_data, :errors, :activity_log, :message_log, :verbose, :silent, :pretty_json, :halt_on_error, :processed_mods, :config, :mod_data_checksum
+    attr_accessor :files, :data, :mod_data, :part_data, :errors, :activity_log, :message_log, :processed_mods, :mod_data_checksum
+    attr_accessor :config, :perform_conflict_resolution, :pretty_json, :halt_on_error, :verbose, :silent
     
 
     def initialize args = {}
@@ -45,7 +46,8 @@ module KerbalX
       @silent = false                       #if true then DONT show text output 
       @pretty_json = true                   #if true then format JSON with whitespace and newlines
       @halt_on_error = false
-      @skip_removal = args[:skip_removal].to_s.eql?("true")
+      @skip_removal = true #args[:skip_removal].to_s.eql?("true")
+      @perform_conflict_resolution = true
       
       @mod_dir= "ModArchive"                #Folder were mod zips are downloaded into
       @site_interface = args[:interface]    #instance of KerbalX::Interface which has been initialized with an auth-token
@@ -118,7 +120,7 @@ module KerbalX
     #which in turn downloads, unpacks and reads out part name info from the .cfg files.
     def process subset = to_process, args = {}
       all_mods(subset){|identifier, reader| reader.process_identifier(identifier, args) }
-      resolve_conflicts #remove duplicate instances of parts, ensure each part belongs to just one mod.
+      resolve_conflicts if @perform_conflict_resolution #remove duplicate instances of parts, ensure each part belongs to just one mod.
       @processed_mods = subset
       return nil
     end
@@ -343,13 +345,18 @@ module KerbalX
           #find the root folder inside GameData that the cfg is in (this will be the name that KerbalX knows the mod as, due to the way the PartMapper tool works)
           @root_dirs << cfg_path.split("GameData/").last.split("/").first 
           cfg.split(first_significant_line).map do |sub_component| #this deals with the case of a cfg file containing multiple parts
-            #read_part_variables sub_component #collect certain variables from part and return part's name            
-            part = KerbalX::PartData.new({:part => sub_component, :identifier => @identifier})
-            unless part.name.nil?
-              @part_data[@identifier] ||= {}
-              @part_data[@identifier][part.name] = part.attributes
+            #collect certain variables from part and return part's name            
+            begin
+              part = KerbalX::PartData.new({:part => sub_component, :identifier => @identifier, :logger => self})
+              unless part.name.nil?
+                @part_data[@identifier] ||= {}
+                @part_data[@identifier][part.name] = part.attributes
+              end
+              part.name
+            rescue => e
+              log_error "Failed to read part in #{cfg_path} - #{e}".red
+              nil
             end
-            part.name
           end
         end
       end.flatten.compact.uniq
@@ -427,10 +434,14 @@ module KerbalX
       @activity_log.has_key?(identifier) && @activity_log[identifier].has_key?(version)
     end
 
-    def show_errors type = :all
+    def show_errors types = :all
+      cols = %w[red green yellow blue pink light_blue]
       errs = @errors
-      errs = errs.select{|e| e.match(/^FAILED/)}   if type.eql?(:main)
-      errs = errs.select{|e| !e.match(/^WARNING/)} if type.eql?(:not_warnings)    
+      unless types.eql?(:all)
+        codes = types.split(" ").map{|type| "\e[#{cols.index(type) + 31}m" }
+        errs = errs.select{|e| codes.map{|c| e.include?(c)}.any? }      
+      end
+      
       errs.each{|err| puts "#{err}\n"}
       return nil
     end
@@ -499,9 +510,9 @@ module KerbalX
     end
 
     #load mod and part data from files and set in @ variables with a poor-man's HashWithIndifferentAccess
-    def load_data
-      load_indifferent_access_hash_from_json_file "mod_data"
-      load_indifferent_access_hash_from_json_file "part_data"
+    def load_data file_prefix = nil      
+      load_indifferent_access_hash_from_json_file "mod_data", file_prefix
+      load_indifferent_access_hash_from_json_file "part_data", file_prefix
     end
     
         
@@ -509,7 +520,25 @@ module KerbalX
     def load_config
       @config = JSON.parse(File.open(File.join([@dir, "config.json"]), 'r'){|f| f.readlines}.join) rescue {"ksp_version" => "1.0.0"}
     end
-    
+
+   
+    #Add entry to @activity_log and save the log's json string to file
+    def log_activity identifier, data
+      @activity_log[identifier] ||= {}
+      @activity_log[identifier].merge!(data)
+      File.open(File.join([@dir, "activity.log"]), "w"){|f| f.write make_json(@activity_log) }      
+    end
+
+    #Record an error and if @verbose is true print to screen as they occur
+    def log_error error
+      raise error.inspect if @halt_on_error
+      msg [error].flatten.join("\n") unless @silent
+      @errors << error
+      return nil
+    end
+
+
+
     private
 
 
@@ -517,11 +546,11 @@ module KerbalX
       File.open(File.join([@dir,"#{file_name}.json"]), "w"){|f| f.write make_json(data) }
     end
 
-    def load_indifferent_access_hash_from_json_file file_name
+    def load_indifferent_access_hash_from_json_file file_name, file_prefix = nil
       begin
-        data = JSON.parse(File.open(File.join([@dir,"#{file_name}.json"]), "r"){|f| f.readlines }.join)
+        data = JSON.parse(File.open(File.join([@dir,"#{file_prefix}#{file_name}.json"]), "r"){|f| f.readlines }.join)
       rescue
-        msg "No #{file_name} file to load"
+        msg "No #{file_prefix}#{file_name} file to load"
       end
       if data
         default_proc = proc do |h, k|
@@ -570,20 +599,7 @@ module KerbalX
       @activity_log ||= {} #if log is still nil, then set it as empty hash
     end
 
-    #Add entry to @activity_log and save the log's json string to file
-    def log_activity identifier, data
-      @activity_log[identifier] ||= {}
-      @activity_log[identifier].merge!(data)
-      File.open(File.join([@dir, "activity.log"]), "w"){|f| f.write make_json(@activity_log) }      
-    end
 
-    #Record an error and if @verbose is true print to screen as they occur
-    def log_error error
-      raise error.inspect if @halt_on_error
-      msg [error].flatten.join("\n") unless @silent
-      @errors << error
-      return nil
-    end
 
     #passes a string to puts unless @silent is true
     #all output should use this rather than using puts directly

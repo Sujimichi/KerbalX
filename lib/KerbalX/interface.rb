@@ -97,7 +97,9 @@ module KerbalX
     end
 
     def parts_without_data
-      get("#{@site}/knowledge_base/parts_without_data").body
+      r = get("#{@site}/knowledge_base/parts_without_data")     
+      return JSON.parse(r.body) #if r.code.eql?(200)
+      #raise "failed to fetch parts from #{@site}"
     end
 
     #poll site until site responds with ready (which will be after ckan_update delayed_job has completed
