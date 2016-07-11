@@ -59,6 +59,7 @@ module KerbalX
 
       #fix for cases of "invalid byte sequence in UTF-8" error. Some cases need converting to UTF-16 and back to UTF-8 to cure the issue.
       part = part.join("\n").encode('UTF-16', 'UTF-8', :invalid => :replace, :replace => '').encode('UTF-8', 'UTF-16').split("\n")
+      part = part.select{|line| !line.blank?}
 
       PartData::PartVariables.each do |var|
         val = part.select{|line| !line.strip.match("^//") && line.include?("#{var} =") }.first 
@@ -78,9 +79,9 @@ module KerbalX
 
       part_string = part.map{|line| line.strip}.join("\n")
       if part_string.include?("ModuleEngines") 
-        engine_modules = get_part_modules(part, "MODULE").select{|m| m.join.include?("ModuleEngines") }.reverse #the reverse is so that the first instance of enigne info is processed last, so if there are module manager entries that change the engine performance, they are essentially ignored and just the stock values are kept.
-
-        #raise engine_modules.inspect if @name == "RAPIER"
+        engine_modules = get_part_modules(part, "MODULE").select{|m| m.join.include?("ModuleEngines") }.reverse 
+        #the reverse is so that the first instance of enigne info is processed last, so if there are module manager entries that change the engine performance, 
+        #they are essentially ignored and just the stock values are kept.
 
 
         engine_modules.each do |engine_module|
@@ -94,11 +95,12 @@ module KerbalX
           else
             begin
               atmo_curve = get_part_modules(engine_module, "atmosphereCurve").first        
+              next if atmo_curve.nil?
               engine_data["isp"][:vac] = atmo_curve.select{|l| l.strip.match(/^key = 0/) }.first.strip.sub("key = 0 ", "").to_f #intentionall will throw error if no vac isp is found
               atmo_isp= atmo_curve.select{|l| l.strip.match(/^key = 1/) }.first #atmo isp may not be present for all engines
               engine_data["isp"][:atmo]= atmo_isp.strip.sub("key = 1 ", "").to_f if atmo_isp
             rescue => e
-              log_error "failed to read ISP data for #{@identifier} - #{@name}\n#{e}\n#{atmo_curve}\n".yellow
+              log_error "failed to read ISP data for #{@identifier}, #{@name} - #{e}".yellow
             end
           end        
 
@@ -115,7 +117,7 @@ module KerbalX
               end              
             end
           rescue => e
-            log_error "failed to read Propellant data for #{@identifier} - #{@name}\n#{e}\n#{props}\n".yellow
+            log_error "failed to read Propellant data for #{@identifier}, #{@name} - #{e}".yellow
           end
 
           #read thrust data

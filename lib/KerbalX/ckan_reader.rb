@@ -434,18 +434,6 @@ module KerbalX
       @activity_log.has_key?(identifier) && @activity_log[identifier].has_key?(version)
     end
 
-    def show_errors types = :all
-      cols = %w[red green yellow blue pink light_blue]
-      errs = @errors
-      unless types.eql?(:all)
-        codes = types.split(" ").map{|type| "\e[#{cols.index(type) + 31}m" }
-        errs = errs.select{|e| codes.map{|c| e.include?(c)}.any? }      
-      end
-      
-      errs.each{|err| puts "#{err}\n"}
-      return nil
-    end
-
     def reset
       @mod_data = {}
       @activity_log = {}
@@ -537,6 +525,17 @@ module KerbalX
       return nil
     end
 
+    def show_errors types = :all
+      cols = %w[red green yellow blue pink light_blue]
+      errs = @errors
+      types = types.to_s
+      unless types.eql?("all")
+        codes = types.split(" ").map{|type| "\e[#{cols.index(type) + 31}m" }
+        errs = errs.select{|e| codes.map{|c| e.include?(c)}.any? }      
+      end      
+      errs.each{|err| puts "#{err}\n"}
+      return nil
+    end
 
 
     private
