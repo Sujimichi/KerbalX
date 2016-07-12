@@ -49,32 +49,13 @@ module KerbalX
       puts response.body
     end
 
-    def transmit url, data
-      begin
-        r = send_data url, data
-        sleep(1)
-      rescue => e
-        r = FailedResponse.new :body => {:message => "Internal Error\n#{e}\n\n"}.to_json, :code => 500
-      end
-      puts r.code.to_s.eql?("200") ? "OK" : "Failed -> error: #{r.code}"
-      cautiously { puts JSON.parse(r.body)["message"]  }
-      if ["401", "426"].include?(r.code.to_s)
-        puts "\nABORT!!"
-        @skip = true 
-      end             
-      return r
+    def update_knowledge_base_with_part_data part_data, log = {}
+      url = "#{@site}/knowledge_base/update"           
+      print "\nsending PART data to #{@site}..."
+      response = transmit(url, :part_details => part_data, :log => log)
+      puts response.body
     end
 
-    def show_summary responses
-      cautiously { puts JSON.parse(responses.last.body)["closing_message"] }
-      failures = responses.select{|r| !r.code.to_s.eql?("200")}.map{|r| r.message }.uniq
-      unless failures.blank?
-        puts "Some requests could not be processed because reasons;"
-        failures.each do |message|
-          puts "\t#{message}"
-        end
-      end
-    end
 
     
     #takes a hash of part info from the PartParser ie; {"part_name" => {hash_of_part_info}, ...}
@@ -116,6 +97,22 @@ module KerbalX
 
 
     private
+
+    def transmit url, data
+      begin
+        r = send_data url, data
+        sleep(1)
+      rescue => e
+        r = FailedResponse.new :body => {:message => "Internal Error\n#{e}\n\n"}.to_json, :code => 500
+      end
+      puts r.code.to_s.eql?("200") ? "OK" : "Failed -> error: #{r.code}"
+      cautiously { puts JSON.parse(r.body)["message"]  }
+      if ["401", "426"].include?(r.code.to_s)
+        puts "\nABORT!!"
+        @skip = true 
+      end             
+      return r
+    end
 
     def get url
       uri = URI.parse(url)
@@ -160,6 +157,16 @@ module KerbalX
       response = http.request(request)
     end       
 
+    def show_summary responses
+      cautiously { puts JSON.parse(responses.last.body)["closing_message"] }
+      failures = responses.select{|r| !r.code.to_s.eql?("200")}.map{|r| r.message }.uniq
+      unless failures.blank?
+        puts "Some requests could not be processed because reasons;"
+        failures.each do |message|
+          puts "\t#{message}"
+        end
+      end
+    end
   end 
 
 end

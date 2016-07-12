@@ -121,6 +121,9 @@ module KerbalX
     def process subset = to_process, args = {}
       all_mods(subset){|identifier, reader| reader.process_identifier(identifier, args) }
       resolve_conflicts if @perform_conflict_resolution #remove duplicate instances of parts, ensure each part belongs to just one mod.
+      @mod_data.each do |mod,data|
+        data[:part_data_checksum] = Digest::SHA256.hexdigest(@part_data[mod].to_json)
+      end
       @processed_mods = subset
       return nil
     end
@@ -165,7 +168,14 @@ module KerbalX
         log_error "WARNING: a duplicate part somehow made it though to here!".red if parts.detect{|p| parts.count(p) > 1}
        
         #assemble hash of parts and other info for the identifier
-        mod_info = {:name => data[:name], :root_folder => root_dir, :version => data[:version], :url => data[:url], :parts => (parts || []) }
+        mod_info = {
+          :name => data[:name], 
+          :root_folder => root_dir, 
+          :version => data[:version], 
+          :url => data[:url], 
+          :part_data_checksum => nil,
+          :parts => (parts || []) 
+        }
         @mod_data.merge!(identifier => mod_info) #unless parts.empty? #merge the info about the identifier with @mod_data UNLESS it has no parts
 
         msg "Complete; #{parts.size} part names discovered in #{data[:identifier]} #{data[:version]}\n".blue
@@ -517,6 +527,14 @@ module KerbalX
       File.open(File.join([@dir, "activity.log"]), "w"){|f| f.write make_json(@activity_log) }      
     end
 
+    #passes a string to puts unless @silent is true
+    #all output should use this rather than using puts directly
+    #so text output can be silenced
+    def msg string
+      @message_log << string
+      puts string unless @silent
+    end
+        
     #Record an error and if @verbose is true print to screen as they occur
     def log_error error
       raise error.inspect if @halt_on_error
@@ -598,15 +616,6 @@ module KerbalX
       @activity_log ||= {} #if log is still nil, then set it as empty hash
     end
 
-
-
-    #passes a string to puts unless @silent is true
-    #all output should use this rather than using puts directly
-    #so text output can be silenced
-    def msg string
-      @message_log << string
-      puts string unless @silent
-    end
 
     #returns a JSON strong for the given object
     #if @pretty_json is set to true then it's formatted for human readability

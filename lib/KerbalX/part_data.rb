@@ -1,7 +1,7 @@
 module KerbalX
 
   class PartData
-    attr_accessor :name, :attributes
+    attr_accessor :name, :attributes, :parts, :not_found
 
     PartVariables = ["cost", "mass", "category", "CrewCapacity", "TechRequired"] 
 
@@ -18,34 +18,45 @@ module KerbalX
     end
 
     def assign_part_data_to_parts part_data, parts_without_data
-      lookup_map = part_data.keys.map{|k| {k.downcase.gsub(" ","").gsub("_","") => k} }.reduce(Hash.new, :merge)
-      @part_data = {}
+      #lookup_map = part_data.keys.map{|k| {k.downcase.gsub(" ","").gsub("_","") => k} }.reduce(Hash.new, :merge)
+      msg "Looking for data for #{parts_without_data.map{|k,v| v}.flatten.count} parts...".blue
+      @parts = {} 
 
-      names = parts_without_data.map{|k,v| v}.flatten
-      pd = part_data.map{|k,v| v.keys}.flatten
-
-      c = names.select{|i| pd.include?(i)}.count
-      not_found = names.select{|i| !pd.include?(i)}
-      puts "names to find: #{names.count}, Found: #{c}"
-      return not_found
+      @not_found = []
 
       @r = {:found => 0, :notfound => 0}
       parts_without_data.each do |mod_name, parts|
-        mod = lookup_map[mod_name]
-        if mod.nil?
-          puts "failed to find #{mod_name}"
-          @r[:notfound] +=1
+        mod = part_data[mod_name] #|| lookup_map[mod_name]
+        if mod                   
+          parts.each do |part|
+            data = part_data[mod_name][part]
+            if data
+              @parts[part] = data
+            else
+              @not_found << part
+            end
+          end
         else
-          @r[:found] += 1
+          @not_found << parts
         end
-        parts.each do |part|
-          
-        end
-
       end
 
-      return @r
-      
+      @not_found.flatten!
+      unless @not_found.empty?
+        msg "#{@not_found.count} parts not found with direct lookup\nAttempting to find....".light_blue
+        found = 0
+        @not_found.each do |part|
+          mod = part_data.select{|k,v| v.keys.include?(part)}.map{|k,v| k}.first
+          if mod && part_data[mod][part]
+            @parts[part] = part_data[mod][part]
+            @not_found.delete(part)
+            found += 1
+          end
+        end
+        msg "Found data for additional #{found} parts".light_blue
+      end
+      msg "Totals: Found data for #{@parts.keys.count} parts, #{@not_found.count} parts still without data".blue
+
     end
 
     #read variables and part_name from part 
@@ -68,7 +79,7 @@ module KerbalX
         rescue
           val = ""
         end
-        
+
         if val && val.to_i.to_s.eql?(val)
           val = val.to_i 
         elsif val && val.include?(".") && "%.#{val.split(".").last.length}f" % val.to_f == val #essentially val.to_f.to_s == val, but allowing for val to have trailing 0s, ie: "0.50".  %.2f % 0.5 -> "0.50"
@@ -143,7 +154,7 @@ module KerbalX
           name = name.sub("name = ","") if name
           max_amount = resource.select{|l| l.match(/^maxAmount/) }.first
           max_amount = max_amount.sub("maxAmount = ","").to_f if max_amount
-          
+
           @attributes["resources"][name] = max_amount
         end
       end
@@ -170,13 +181,21 @@ module KerbalX
       }
       sel.join("\n").split("#{module_name}").map{|l| l.strip.split("\n").map{|i|i.strip.sub("@","").sub("//","")}.select{|g| !g.blank?} }.select{|g| !g.blank?}
     end
-    
+
 
     def log_error error
       if @logger
         @logger.log_error error
       else
         raise error
+      end      
+    end
+
+    def msg string
+      if @logger && @logger.respond_to?(:msg)
+        @logger.msg string
+      else
+        puts string
       end
     end
 
