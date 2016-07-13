@@ -28,7 +28,7 @@ module KerbalX
     require 'digest'
     require "KerbalX/extensions" unless [].respond_to?(:split)
 
-    attr_accessor :files, :data, :mod_data, :part_data, :errors, :activity_log, :message_log, :processed_mods, :mod_data_checksum
+    attr_accessor :files, :data, :mod_data, :part_data, :errors, :activity_log, :message_log, :processed_mods, :mod_data_checksum, :resources
     attr_accessor :config, :perform_conflict_resolution, :pretty_json, :halt_on_error, :verbose, :silent
     
 
@@ -38,6 +38,7 @@ module KerbalX
       @dir = args[:dir]                     #dir where reop will be cloned into and where zips will be downloaded to an unpacked
       @ckan_repo = args[:ckan_repo]         #address for the CKAN repo on github
       @repo = "CKAN-meta"                   #name of the CKAN repo's folder
+      @part_scanner = KerbalX::PartData.new
       @mod_data = {}                        #store for resultant info of mods and their parts
       @part_data= {}                        #srore for part variable data
       @errors = []                          #store for tracking errors during run
@@ -174,11 +175,15 @@ module KerbalX
           :version => data[:version], 
           :url => data[:url], 
           :part_data_checksum => nil,
-          :parts => (parts || []) 
+          :parts => (parts || [])          
         }
+        mod_info[:resources] = @resources unless @resources.blank?
         @mod_data.merge!(identifier => mod_info) #unless parts.empty? #merge the info about the identifier with @mod_data UNLESS it has no parts
 
-        msg "Complete; #{parts.size} part names discovered in #{data[:identifier]} #{data[:version]}\n".blue
+        main_string = "Complete; #{parts.size} part names discovered in #{data[:identifier]} #{data[:version]}".blue
+        r_string = "\nFound #{@resources.count} resources".green unless @resources.blank?
+        msg "#{main_string}#{r_string}\n\n"
+
       else
         msg "Skipped #{data[:identifier]}; #{skip}\n".yellow
       end
@@ -333,28 +338,47 @@ module KerbalX
     #based on the logic from KerbalX::PartParser so has some concepts that may now be legacy (ie multiple parts in single .cfg file)
     def read_parts_from cfg_paths
       @root_dirs = []
+      @resources = {}
       cfg_paths.map do |cfg_path|
         next if cfg_path.include?("__MACOSX") #skip __MACOSX files
         begin
-          cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines} #open the cfg file using Unicode BOM to deal with some encoding present in cfg files.
+          cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines} #open the cfg file using Unicode BOM to deal with some encoding present in cfg files.          
         rescue
           log_error "failed to read #{cfg_path.sub(@dir, "")}".red
           next #skip this file 
         end       
-
-        first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? rescue false }.first #find first line that isn't comments or empty space
-        #the rescue false allows this to ignore lines that fail. typically this is due to an "invalid byte sequence in UTF-8" error
-        #and that *usually* is only an issue for description lines which we don't care about.
-
+        
+        #if the first attempt fails this is most likely due to a "invalid byte sequence in UTF-8" error. in which case in the rescue we fix the strings in the array 
+        #with utf_safe (see Array in extensions.rb) and try again, but also allow for a line to fail and be ignored with rescue false
+        #utf_save is not called by default as it results in slower performance
+        begin
+          first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? }.first #find first line that isn't comments or empty space
+        rescue
+          cfg = cfg.utf_safe
+          first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? rescue false}.first
+        end
+        
         if first_significant_line.nil?
           log_error "no significant line found in: #{cfg_path.sub(@dir, "")}".yellow 
           next
         end
 
-        if first_significant_line.match(/^PART/)
+        #if a cfg contains definitions of resources extra info about the resources.
+        if cfg.select{|line| line.match(/^RESOURCE_DEFINITION/)}.first
+          @part_scanner.get_part_modules(cfg, "RESOURCE_DEFINITION").map do |resource|            
+            resource_attrs = @part_scanner.read_attributes_from resource, ["name", "density", "unitCost", "volume"]
+            resource_name = resource_attrs["name"]
+            resource_attrs.delete("name")            
+            @resources[resource_name] = resource_attrs
+          end
+        end
+
+        
+        #if cfg contains PART then split it on instances of PART (in the case of multiple parts in the same cfg) and parse each for details about the part
+        if cfg.select{|line| line.match(/^PART/)}.first
           #find the root folder inside GameData that the cfg is in (this will be the name that KerbalX knows the mod as, due to the way the PartMapper tool works)
           @root_dirs << cfg_path.split("GameData/").last.split("/").first 
-          cfg.split(first_significant_line).map do |sub_component| #this deals with the case of a cfg file containing multiple parts
+          @part_scanner.get_part_modules(cfg, "PART").map do |sub_component| #this deals with the case of a cfg file containing multiple parts
             #collect certain variables from part and return part's name            
             begin
               part = KerbalX::PartData.new({:part => sub_component, :identifier => @identifier, :logger => self})
@@ -362,13 +386,14 @@ module KerbalX
                 @part_data[@identifier] ||= {}
                 @part_data[@identifier][part.name] = part.attributes
               end
-              part.name
+              part.name #part name is returned as the product of the .map loop
             rescue => e
               log_error "Failed to read part in #{cfg_path} - #{e}".red
               nil
             end
           end
         end
+
       end.flatten.compact.uniq
     end
 
@@ -446,6 +471,7 @@ module KerbalX
 
     def reset
       @mod_data = {}
+      @part_data = {}
       @activity_log = {}
       @errors = []
       @message_log = []

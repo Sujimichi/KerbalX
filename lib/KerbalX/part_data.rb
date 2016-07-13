@@ -59,6 +59,7 @@ module KerbalX
 
     end
 
+
     #read variables and part_name from part 
     def read_part_variables part
       part_name = part.select{|line| line.include?("name =")}.first #find the first instance of attribute "name" and return value
@@ -69,24 +70,10 @@ module KerbalX
       @attributes = {}
 
       #fix for cases of "invalid byte sequence in UTF-8" error. Some cases need converting to UTF-16 and back to UTF-8 to cure the issue.
-      part = part.join("\n").encode('UTF-16', 'UTF-8', :invalid => :replace, :replace => '').encode('UTF-8', 'UTF-16').split("\n")
+      part = part.utf_safe
       part = part.select{|line| !line.blank?}
 
-      PartData::PartVariables.each do |var|
-        val = part.select{|line| !line.strip.match("^//") && line.include?("#{var} =") }.first 
-        begin
-          val = val.sub("#{var} = ","").split("//").first.strip.sub("@",'').chomp unless val.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
-        rescue
-          val = ""
-        end
-
-        if val && val.to_i.to_s.eql?(val)
-          val = val.to_i 
-        elsif val && val.include?(".") && "%.#{val.split(".").last.length}f" % val.to_f == val #essentially val.to_f.to_s == val, but allowing for val to have trailing 0s, ie: "0.50".  %.2f % 0.5 -> "0.50"
-          val = val.to_f
-        end
-        @attributes[var] = val unless val.nil?
-      end
+      @attributes.merge!(read_attributes_from(part, PartData::PartVariables))
 
       part_string = part.map{|line| line.strip}.join("\n")
       if part_string.include?("ModuleEngines") 
@@ -168,11 +155,11 @@ module KerbalX
       sel = part.select{|line| 
         if line.include?(module_name)
           in_scope = true
-          brackets = 0
+          brackets = line.include?("{") ? 1 : 0
           true
         else
           if in_scope            
-            brackets += 1 if line.include?("{")            
+            brackets += 1 if line.include?("{")
             brackets -= 1 if line.include?("}")          
             in_scope = false if brackets <= 0
           end
@@ -180,6 +167,27 @@ module KerbalX
         end  
       }
       sel.join("\n").split("#{module_name}").map{|l| l.strip.split("\n").map{|i|i.strip.sub("@","").sub("//","")}.select{|g| !g.blank?} }.select{|g| !g.blank?}
+    end
+
+    def read_attributes_from part, attributes
+      matched_attributes = {}
+
+      attributes.each do |var|
+        val = part.select{|line| !line.strip.match("^//") && line.include?("#{var} =") }.first 
+        begin
+          val = val.sub("#{var} = ","").split("//").first.strip.sub("@",'').chomp unless val.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
+        rescue
+          val = ""
+        end
+
+        if val && val.to_i.to_s.eql?(val)
+          val = val.to_i 
+        elsif val && val.include?(".") && "%.#{val.split(".").last.length}f" % val.to_f == val #essentially val.to_f.to_s == val, but allowing for val to have trailing 0s, ie: "0.50".  %.2f % 0.5 -> "0.50"
+          val = val.to_f
+        end
+        matched_attributes[var] = val unless val.nil?        
+      end
+      matched_attributes
     end
 
 

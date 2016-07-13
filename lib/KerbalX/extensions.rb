@@ -55,6 +55,18 @@ class Array
     end  
   end
 
+  def utf_safe
+    #self.join("\n").fix_utf_errors.split("\n")
+    self.map{|l| l.is_a?(String) ? l.fix_utf_errors : l}
+  end
+
+end
+
+class Hash
+  #add .blank? to Hash
+  def blank?
+    self.nil? || self.empty?
+  end
 end
 
 #extensions for String class
@@ -63,6 +75,11 @@ class String
   #add .blank? to String
   def blank?
     self.nil? || self.empty?
+  end
+
+  #convert to UTF-16 and back to UTF-8 as a workaround for some cases of strings returning "invalid byte sequence in UTF-8"
+  def fix_utf_errors
+    self.encode('UTF-16', 'UTF-8', :invalid => :replace, :replace => '').encode('UTF-8', 'UTF-16')
   end
 
   # colorization

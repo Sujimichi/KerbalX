@@ -47,10 +47,10 @@ KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
   kerbalx.after_knowledge_base_update do 
     #fetch list of parts without part data
     ckan_reader.msg "Fetching Parts without data from #{kerbalx.site}".blue
-    parts_without_data = kerbalx.parts_without_data
+    parts_without_data = kerbalx.parts_without_data; nil
 
     #find data for those parts
-    part_data = KerbalX::PartData.new(:reader => ckan_reader, :parts_without_data => parts_without_data)
+    part_data = KerbalX::PartData.new(:reader => ckan_reader, :parts_without_data => parts_without_data);nil
        
     #send part data back to site.
     kerbalx.update_knowledge_base_with_part_data part_data.parts.to_json
@@ -61,5 +61,6 @@ KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
     puts "errors:\n"
     ckan_reader.show_errors
   end
-  
+
+
 end
