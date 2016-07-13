@@ -11,10 +11,10 @@ module KerbalX
       defaults = {
         :source => :game_folder,                  #default is to read part info from the GameData folder. Alternative is to read from file.
         :write_to_file => false,                  #if set to true the data will be written to .partDB file (default is partmapper.parts.DB or name can be supplied by :file)
-        :associate_components => true,            #default opt is to associate props, internals and resources with parts (can take time)
+        #:associate_components => true,            #default opt is to associate props, internals and resources with parts (can take time)
         :file => "part_mapper.partsDB",           #default name of file for writing to / reading from
         :stock_parts => ["Squad", "NASAmission"], #defines the default definition of which "mods" are stock
-        :logger => KerbalX::Logger                #default logger, replace with a logger from the environment PartParser is being used it.
+        :logger => KerbalX::Logger.new            #default logger, replace with a logger from the environment PartParser is being used it.
         #:ignore_mods => [mod_dir names to be skipped] optional
       }
       args = defaults.merge(args)
@@ -23,14 +23,18 @@ module KerbalX
       @logger       = args[:logger]
       @stock_parts  = args[:stock_parts]
       @instance_dir = dir
+      @part_scanner = KerbalX::PartData.new
 
-      if args[:source] == :game_folder
+    end
+
+    def process
+      if @args[:source] == :game_folder
         cur_dir = Dir.getwd                     #note the current dir so it can be returned to after running
         Dir.chdir(@instance_dir)                #change into given dir
         begin
           index_parts                           #discover all .cfg files and determine what they defines (Parts, Resources, Props..etc)
           @parts ||= {}                         
-          associate_components if @args[:associate_components] #associate props, internals and resources with parts
+          #associate_components if @args[:associate_components] #associate props, internals and resources with parts
           write_to_file if @args[:write_to_file]#optionally, write the data to file
         rescue Exception => e
           @logger.log_error "Failed to build map of installed parts\n#{e}\n#{e.backtrace.first}"
@@ -40,6 +44,8 @@ module KerbalX
         read_from_file 
       end
     end
+
+
 
     def read_from_file 
       data = File.open(File.join([@instance_dir, @args[:file]]),'r'){|f| f.readlines.join }
@@ -63,34 +69,42 @@ module KerbalX
     def index_parts 
       part_cfgs = discover_cfgs
       @resources = {}
-      @internals = {}
-      @props = {}
+      #@internals = {}
+      #@props = {}
       @ignored_cfgs = []
-      part_info = part_cfgs.map do |cfg_path|
 
-      
-        begin
-          #read .cfg file as r:bom|utf-8
-          cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines}
 
-          next if cfg_path.include?("mechjeb_settings") #not all .cfg files are part files, some are settings, this ignores mechjeb settings (which are numerous). 
-          next if cfg_path.match(/^GameData\//) && cfg_path.split("/").size.eql?(2) #ignore cfg files in the root of GameData
-          next if cfg_path.match(/^saves\//) #ignore cfg files in saves folder
-
-          #Others will be ignored by the next line failing to run
-          part_name = cfg.select{|line| line.include?("name =")}.first.sub("name = ","").sub("@","").gsub("\t","").gsub(" ","").chomp
-          print "."
-
+      part_data = part_cfgs.map do |cfg_path|     
+        begin          
+          cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines} #read .cfg file as r:bom|utf-8
         rescue Exception => e
-          @ignored_cfgs << cfg_path
-          #@logger.log_error "Error in index_parts while attempting to read part name\nFailed Part path: #{cfg_path}\n#{e.backtrace.first}"
+          @logger.log_error "Failed to read #{cfg_path}".red
+          @ignored_cfgs << cfg_path          
           next
         end
-        
+
+        #if the first attempt fails this is most likely due to a "invalid byte sequence in UTF-8" error. in which case in the rescue we fix the strings in the array 
+        #with utf_safe (see Array in extensions.rb) and try again, but also allow for a line to fail and be ignored with rescue false
+        #utf_save is not called by default as it results in slower performance
+        begin
+          first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? }.first #find first line that isn't comments or empty space
+        rescue
+          cfg = cfg.utf_safe
+          first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? rescue false}.first
+        end
+       
+        if first_significant_line.nil?
+          @logger.log_error "no significant line found in: #{cfg_path}".yellow 
+          next
+        end
+
+        next if cfg_path.include?("mechjeb_settings") #not all .cfg files are part files, some are settings, this ignores mechjeb settings (which are numerous). 
+        next if cfg_path.match(/^GameData\//) && cfg_path.split("/").size.eql?(2) #ignore cfg files in the root of GameData
+        next if cfg_path.match(/^saves\//) #ignore cfg files in saves folder
+
         begin
           dir = cfg_path.sub("/part.cfg","")
           part_info = {:dir => dir, :path => cfg_path }
-
 
           if cfg_path.match(/^GameData/)
             folders = dir.split("/")
@@ -102,75 +116,113 @@ module KerbalX
             part_info.merge!(:mod => mod_dir)
             part_info.merge!(:stock => @stock_parts.include?(mod_dir)) 
 
-            #determine if the cfg file defines a part, prop, internal or resouce.  
-            #Other types (of which there are severl) don't need to be considered
-            first_significant_line = cfg.select{|line| line.match("//").nil? && !line.chomp.empty? }.first #first line that isn't comments or empty space
-            type = :part     if first_significant_line.match(/^PART/)
-            type = :prop     if first_significant_line.match(/^PROP/)
-            type = :internal if first_significant_line.match(/^INTERNAL/)
-            type = :resource if first_significant_line.match(/^RESOURCE_DEFINITION/)
-            type ||= :other
 
-            part_info.merge!(:type => type)
+            #if a cfg contains definitions of resources extra info about the resources.
+            if cfg.select{|line| line.match(/^RESOURCE_DEFINITION/)}.first
+              @part_scanner.get_part_modules(cfg, "RESOURCE_DEFINITION").map do |resource|            
+                resource_attrs = @part_scanner.read_attributes_from resource, ["name", "density", "unitCost", "volume"]                
+                resource_name = resource_attrs["name"]
+                resource_attrs.delete("name")            
+                @resources[mod_dir] ||= {}
+                @resources[mod_dir][resource_name] = resource_attrs
+              end
+            end
+            
+            #if cfg contains PART then split it on instances of PART (in the case of multiple parts in the same cfg) and parse each for details about the part
+            if cfg.select{|line| line.match(/^PART/)}.first
+              #incases of a maim mod dir having sub divisions within it    
+              sub_mod_dir = folders[2] if folders[2].downcase != "parts" 
+              part_info.merge!(:sub_mod => sub_mod_dir) if sub_mod_dir
 
-            #incases of a maim mod dir having sub divisions within it    
-            sub_mod_dir = folders[2] if type.eql?(:part) && folders[2].downcase != "parts" 
-            part_info.merge!(:sub_mod => sub_mod_dir) if sub_mod_dir
+              @part_scanner.get_part_modules(cfg, "PART").map do |sub_component| #this deals with the case of a cfg file containing multiple parts
+                #collect certain variables from part and return part's name            
+                begin
+                  part = KerbalX::PartData.new({:part => sub_component, :identifier => mod_dir})
+                  unless part.name.nil?
+                    part_info.merge!(:name => part.name, :attributes => part.attributes)
+                    part_info.clone
+                  end                 
+                rescue => e
+                  @logger.log_error "Failed to read part in #{cfg_path} - #{e}".red
+                  nil
+                end
+              end
+            end
 
-            #subcompnents deals with when a .cfg includes info for more than one part or resouce etc.
-            cfg.split( first_significant_line ).map do |sub_component|
-
-              next if sub_component.blank?
-              name = sub_component.select{|line| line.include?("name =")}.first
-              next if name.blank?
-              name = name.sub("name = ","").gsub("\t","").gsub(" ","").sub("@",'').chomp         
-              part_info.merge!(:name => name)
-
-              if type.eql?(:resource)            
-                @resources.merge!(name => part_info.clone)
-                nil
-              elsif type.eql?(:internal)
-                part_info.merge!(:file => cfg)
-                @internals.merge!(name => part_info.clone)
-                nil
-              elsif type.eql?(:prop)
-                @props.merge!(name => part_info.clone)
-                nil
-              elsif type.eql?(:other)
-                @ignored_cfgs << cfg_path
-                nil
-              else #its a part init'
-                part_info.merge!(:file => cfg)
-                part_info.clone #return part info in the .map loop
-              end            
-            end.compact
-
-          elsif cfg_path.match(/^Parts/)
-            part_info.merge!(:name => part_name, :legacy => true, :type => :part, :mod => :unknown_legacy)
-            part_info
+          elsif cfg_path.match(/^Parts/)        
+            part_info = {}
           else
             @ignored_cfgs << cfg_path
-            #raise UnknownPartException, "part #{cfg_path} is not in either GameData or the legacy Parts folder"
-            #this could be a problem for people with legacy internals, props or resources
             part_info = {}
           end
-
         rescue Exception => e
-          @logger.log_error "Error in index_parts while attempting to read part file\nFailed Part path: #{cfg_path}\n#{e}\n#{e.backtrace.first}"
+          @logger.log_error "Error in index_parts while attempting to read part file\nFailed Part path: #{cfg_path}\n#{e}\n#{e.backtrace.first}".red
           @ignored_cfgs << cfg_path
           part_info = {}
         end
 
+        print ".".light_blue
+        part_info
       end.flatten.compact
 
       #Construct parts hash. ensuring that part info is not blank and that it has a name key    
-      @parts = part_info.select{|part|  
+      @parts = part_data.select{|part|  
         !part.empty? && part.has_key?(:name)
       }.map{|n| 
         {n[:name].gsub("_",".") => n} 
       }.inject{|i,j| i.merge(j)}   
+
+      puts "done".blue
     end
 
+       
+    #takes a hash of part info from the PartParser ie; {"part_name" => {hash_of_part_info}, ...}
+    #and returns a hash of mod_name entails array of part names, {mod_name => ["part_name", "part_name"], ...}
+    def grouped_parts parts = self.parts     
+      grouped_parts = parts.group_by{|k,v| v[:mod]} #group parts by mod
+      grouped_parts.map{|mod, group| 
+        { mod => group.map{|g| g.first} }           #remove other part info, leaving just array of part names
+      }.inject{|i,j| i.merge(j)}                    #re hash
+    end
+
+    def part_attributes mod_names = nil
+      g_parts = self.grouped_parts
+      parts_with_attributes = {}
+
+      mod_names ||= g_parts.keys
+      mod_names = [mod_names].flatten
+
+      mod_names.each do |mod_name|
+        g_parts[mod_name].each do |part_name|
+          parts_with_attributes[part_name] = self.parts[part_name][:attributes]
+        end
+      end
+    
+      parts_with_attributes
+
+    end
+
+    #return part info for the given part name
+    def locate part_name
+      @parts[part_name]
+    end
+
+    #encode data as a json string (for writing to file)
+    def to_json
+      {
+        :parts => @parts,
+        :resources => @resources,
+        :internals => @internals,
+        :props => @props,
+        :ignored_cfgs => @ignored_cfgs
+      }.to_json
+    end
+
+    def show
+      puts @parts.to_json
+    end
+
+=begin    
     #link resources, internals and props with parts
     def associate_components  
       #associate internals and resources with parts
@@ -193,26 +245,7 @@ module KerbalX
         cfg_file.select{|l| !l.match("//") && l.include?("name") && l.include?("=") }.map{|l| l.match(/\s#{name}\s/)}.any?
       }.map{|name, data| name}
     end
-
-    #return part info for the given part name
-    def locate part_name
-      @parts[part_name]
-    end
-
-    #encode data as a json string (for writing to file)
-    def to_json
-      {
-        :parts => @parts,
-        :resources => @resources,
-        :internals => @internals,
-        :props => @props,
-        :ignored_cfgs => @ignored_cfgs
-      }.to_json
-    end
-
-    def show
-      puts @parts.to_json
-    end
+=end
 
   end
 end
