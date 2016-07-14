@@ -4,6 +4,9 @@ require "KerbalX/version"
 #extensions not required when used in a rails app as rails provides these extensions.
 require "KerbalX/extensions" unless defined? Rails
 
+#PartData facilitates reading attributes from part files
+require "KerbalX/part_data"
+
 #The main crunk in this gems ba-dunk-a-dunk (it's a part parser, it parses parts, der)
 require "KerbalX/part_parser"
 

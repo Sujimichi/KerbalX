@@ -2,28 +2,19 @@
 #under construction, testing, not for general consumption, if swallowed seek medical attention.
 
 
-=begin
-  require File.join(File.dirname(__FILE__), "lib", "KerbalX", "version")      #version info
-  require File.join(File.dirname(__FILE__), "lib", "KerbalX", "extensions")   #adds some rails methods (ie .blank?) to core classes (String, Array and NilClass).
-  require File.join(File.dirname(__FILE__), "lib", "KerbalX", "part_parser")  #main part reading logic
-  require File.join(File.dirname(__FILE__), "lib", "KerbalX", "logger")       #error logger
-  require File.join(File.dirname(__FILE__), "lib", "KerbalX", "auth_token")   #auth key reader
-  require File.join(File.dirname(__FILE__), "lib", "KerbalX", "interface")    #interface with KerbalX.com
-  require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ignore_file")  #read any user deifned mods to be ignored
-  require File.join(File.dirname(__FILE__), "lib", "KerbalX", "ckan_reader")  
-=end
-
 require 'KerbalX'
 
 
-puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n"
+puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n".green
 
-#@site = "http://localhost:3000"
+
 @site = "https://kerbalx.com"
+#@site = "http://localhost:3000"
 #@site = "http://kerbalx-stage.herokuapp.com"
 
-#@path = "/home/sujimichi/coding/lab/KerbalX-CKAN" 
+
 @path = Dir.getwd
+#@path = "/home/sujimichi/coding/lab/KerbalX-CKAN" 
 
 KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
 
