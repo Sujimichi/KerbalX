@@ -166,7 +166,9 @@ module KerbalX
           brackets >= 1
         end  
       }
-      sel.join("\n").split("#{module_name}").map{|l| l.strip.split("\n").map{|i|i.strip.sub("@","").sub("//","")}.select{|g| !g.blank?} }.select{|g| !g.blank?}
+      sel.join("\n").split("#{module_name}").map{|m| 
+        m.strip.split("\n").map{|line| line.strip.sub("@","").split("//").first }.select{|g| !g.blank?} 
+      }.select{|g| !g.blank?}
     end
 
     def read_attributes_from part, attributes
@@ -175,7 +177,7 @@ module KerbalX
       attributes.each do |var|
         val = part.select{|line| !line.strip.match("^//") && line.include?("#{var} =") }.first 
         begin
-          val = val.sub("#{var} = ","").split("//").first.strip.sub("@",'').chomp unless val.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip
+          val = val.sub("#{var} =","").split("//").first.strip.sub("@",'').chomp unless val.blank? #remove preceeding and trailing chars - gsub("\t","").gsub(" ","") replaced with strip         
         rescue
           val = ""
         end

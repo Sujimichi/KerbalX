@@ -47,7 +47,7 @@ module KerbalX
       @silent = false                       #if true then DONT show text output 
       @pretty_json = true                   #if true then format JSON with whitespace and newlines
       @halt_on_error = false
-      @skip_removal = true #args[:skip_removal].to_s.eql?("true")
+      @skip_removal = args[:skip_removal].to_s.eql?("true")
       @perform_conflict_resolution = true
       
       @mod_dir= "ModArchive"                #Folder were mod zips are downloaded into
