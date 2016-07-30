@@ -5,13 +5,13 @@ see http://KerbalX.com/about and http://KerbalX.com/PartMapper for more info.
 
 
 A gem to scan the GameData folder in KSP and return details about the parts and which mods they belong to.
-Also provides a class to interface with KerbalX.com and transmit the information about discovered parts.
+Provides a class to interface with KerbalX.com and transmit the information about discovered parts.
 
 
 ## Installation
 Gem not relased on RubyGems (yet), github install
 
-    gem "KerbalX", :git => "git://github.com"
+    gem "KerbalX", :git => "https://github.com/Sujimichi/KerbalX.git"
 
 And then execute:
 
