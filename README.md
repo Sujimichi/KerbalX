@@ -46,5 +46,17 @@ To run the tests you need to unzip test_env.zip and you'll need to ask me for th
 
 ##exe compilation
 The PartMapper.exe is compiled using OCRA to package it up with the core ruby libs it needs to function in a windows environment which is devoid of ~~joy~~ Ruby.
+Current version compiled under Ruby 2.2.5
+Clone this projects repo and cd into dir.
+Double check the @site variable, ensure it points to KerablX.com for production compile of part_mapper, or to test site for trail compiles.
     
-    ocra kerbalx_part_mapper.rb --no-enc
+    gem install bundler
+    bundle install
+    gem install ocra
+    mkdir GameData #required so partmapper finds a GameData folder when compiled.
+    
+    ocra kerbalx_part_mapper.rb --no-enc --output 'PartMapper.exe'
+    
+    
+    
+    
