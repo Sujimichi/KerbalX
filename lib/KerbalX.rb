@@ -22,6 +22,9 @@ require 'KerbalX/interface'
 #provides methods for downloading and interacting with the CKAN-meta repo
 require 'KerbalX/ckan_reader'
 
+#handles reading an ignore file if one is present
+require 'KerbalX/ignore_file'
+
 module KerbalX
   # Your code goes here...  
   # or not as the case may be
