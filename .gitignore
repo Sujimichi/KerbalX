@@ -36,3 +36,7 @@ build/
 *~
 *.swp
 
+/PartMapper compiles
+/html
+/scratch_pad.rb
+/test_env
