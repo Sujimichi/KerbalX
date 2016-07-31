@@ -49,8 +49,9 @@ Current version compiled under Ruby 2.2.5
 Clone this projects repo and cd into dir.
 Double check the @site variable, ensure it points to KerablX.com for production compile of part_mapper, or to test site for trail compiles.
     
-    bundle install
-    gem install ocra
+    bundle install    #skip if already installed
+    gem install ocra  #skip if already installed
+    rake update       #builds the gem
     mkdir GameData #required so partmapper finds a GameData folder when compiled.
     
     ocra kerbalx_part_mapper.rb --no-enc --output 'PartMapper.exe'
