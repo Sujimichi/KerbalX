@@ -221,7 +221,7 @@ module KerbalX
     def latest_version_for identifier
       read_ckan_info_from unless @data  #ensure @data is present
       if identifier == "Squad"
-        mod = [{:identifier => "Squad", :name => "Squad", :url => "", :version => "1.1.2", :status => nil}]
+        mod = [{:identifier => "Squad", :name => "Squad", :url => "", :version => @config["ksp_version"], :status => nil}]
       else
         mod = @data[identifier]           #select array of info for given identifier    
       end
