@@ -5,7 +5,7 @@ require 'KerbalX'
 
 puts "\nPartMapper for KerbalX.com - v#{KerbalX::VERSION}\n\n".green
 
-@site = "https://kerbalx.com"
+@site = "http://kerbalx.com"
 #@site = "http://localhost:3000"
 #@site = "http://kerbalx-stage.herokuapp.com"
 
