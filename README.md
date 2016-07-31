@@ -9,18 +9,17 @@ Provides a class to interface with KerbalX.com and transmit the information abou
 
 
 ## Installation
-Gem not relased on RubyGems (yet), github install
+Gem not relased on RubyGems, use github install
 
-    gem "KerbalX", :git => "https://github.com/Sujimichi/KerbalX.git"
+    gem "KerbalX", :git => "git@github.com:Sujimichi/KerbalX.git"
 
 And then execute:
 
-    $ bundle
+    $ bundle install
 
 ## Usage
 
 ### PartParser
-
     parser = KerbalX::PartParser.new <path_to_KSP_install>
     parser.parts #=> Hash of part names and details 
       
@@ -37,7 +36,7 @@ More instructions and more functionality will be added soon
 
 ##Running Tests
 The tests depend on a mock setup of a KSP GameData folder.  This mock setup contains some .cfg files from KSP core and 3rd party mods.
-Basically it contains things that should not be distributed.  Therefore the this data is contained in a password protected zip.
+Basically it contains things that should not be distributed.  Therefore this data is contained in a password protected zip.
 To run the tests you need to unzip test_env.zip and you'll need to ask me for the password in order to do so.
 
 - I hope to change this, I'm just being over careful atm
@@ -50,7 +49,6 @@ Current version compiled under Ruby 2.2.5
 Clone this projects repo and cd into dir.
 Double check the @site variable, ensure it points to KerablX.com for production compile of part_mapper, or to test site for trail compiles.
     
-    gem install bundler
     bundle install
     gem install ocra
     mkdir GameData #required so partmapper finds a GameData folder when compiled.
