@@ -151,9 +151,10 @@ module KerbalX
     def get_part_modules part, module_name
       brackets = 0
       in_scope = false
+      regexp = /\b(#{module_name})\b/
 
       sel = part.select{|line| 
-        if line.include?(module_name)
+        if line.match(regexp)
           in_scope = true
           brackets = line.include?("{") ? 1 : 0
           true
@@ -166,7 +167,9 @@ module KerbalX
           brackets >= 1
         end  
       }
-      sel.join("\n").split("#{module_name}").map{|m| 
+
+      sel = sel.join("\n").split(regexp).select{|l| !l.match(regexp) && !l.blank? }
+      sel.map{|m| 
         m.strip.split("\n").map{|line| line.strip.sub("@","").split("//").first }.select{|g| !g.blank?} 
       }.select{|g| !g.blank?}
     end
