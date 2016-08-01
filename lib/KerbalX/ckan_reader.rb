@@ -339,6 +339,7 @@ module KerbalX
     def read_parts_from cfg_paths
       @root_dirs = []
       @resources = {}
+      @identifier ||= "no_identifier"
       cfg_paths.map do |cfg_path|
         next if cfg_path.include?("__MACOSX") #skip __MACOSX files
         begin
@@ -374,6 +375,7 @@ module KerbalX
         end
 
         
+        
         #if cfg contains PART then split it on instances of PART (in the case of multiple parts in the same cfg) and parse each for details about the part
         if cfg.select{|line| line.match(/^PART/)}.first
           #find the root folder inside GameData that the cfg is in (this will be the name that KerbalX knows the mod as, due to the way the PartMapper tool works)
@@ -382,7 +384,7 @@ module KerbalX
             #collect certain variables from part and return part's name            
             begin
               part = KerbalX::PartData.new({:part => sub_component, :identifier => @identifier, :logger => self})
-              unless part.name.nil?
+              unless (part.name.nil? || part.attributes.empty?)
                 @part_data[@identifier] ||= {}
                 @part_data[@identifier][part.name] = part.attributes
               end

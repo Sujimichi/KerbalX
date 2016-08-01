@@ -4,22 +4,22 @@ require 'spec_helper'
 describe KerbalX::PartData do 
   before :each do  
     @root = KerbalX.root(["test_env"])
-    @part_data = KerbalX::PartData.new
-    path_1 = File.join(@root, "GameData/Squad/Parts/FuelTank/fuelTank_long/part.cfg")
-    path_2 = File.join(@root, "GameData/Squad/Parts/Engine/liquidEngineMini/part.cfg")
-    path_3 = File.join(@root, "GameData/MagicSmokeIndustries/Parts/IR_HingeOpen/part.cfg")
-    path_4 = File.join(@root, "GameData/NearFuturePropulsion/Parts/Engines/vasimr-25/vasimr-25.cfg")
-    
-    
-    @single_part = File.open(path_1,"r:bom|utf-8"){|f| f.readlines}
-    @engine_part = File.open(path_2,"r:bom|utf-8"){|f| f.readlines}
-    @multi_part = File.open(path_3,"r:bom|utf-8"){|f| f.readlines}
-    @odd_part = File.open(path_4,"r:bom|utf-8"){|f| f.readlines}
+
   end
 
   describe "get_part_modules" do 
     before :each do 
-
+      @part_data = KerbalX::PartData.new
+      path_1 = File.join(@root, "GameData/Squad/Parts/FuelTank/fuelTank_long/part.cfg")
+      path_2 = File.join(@root, "GameData/Squad/Parts/Engine/liquidEngineMini/part.cfg")
+      path_3 = File.join(@root, "GameData/MagicSmokeIndustries/Parts/IR_HingeOpen/part.cfg")
+      path_4 = File.join(@root, "GameData/NearFuturePropulsion/Parts/Engines/vasimr-25/vasimr-25.cfg")
+    
+    
+      @single_part = File.open(path_1,"r:bom|utf-8"){|f| f.readlines}
+      @engine_part = File.open(path_2,"r:bom|utf-8"){|f| f.readlines}
+      @multi_part = File.open(path_3,"r:bom|utf-8"){|f| f.readlines}
+      @odd_part = File.open(path_4,"r:bom|utf-8"){|f| f.readlines}
     end
 
     it "should return parts" do 
@@ -49,6 +49,35 @@ describe KerbalX::PartData do
           @part_data.get_part_modules(part_module, "PROPELLANT").count
         end.should == [2,0,0,0]
       end
+
+    end
+
+  end
+
+
+  describe "assign_part_data_to_parts" do 
+    before :each do 
+      @part_data = KerbalX::PartData.new
+    end
+
+    it 'should associate parts (from server) with part data from the reader' do 
+      server_parts = {"mod1" => ["part1", "part2", "part3", "part4"], "mod2" => ["part5", "part6", "part7"]}
+      reader_parts = {"mod1" => {"part1" => "some_prt_data", "part2" => "foobar"}, "mod2" => {"part6" => "test"}}
+
+      @part_data.assign_part_data_to_parts reader_parts, server_parts
+      @part_data.parts.should == {"part1"=>"some_prt_data", "part2"=>"foobar", "part6"=>"test"}
+    end
+
+    it 'should make the association of a part to its data regardless of which mod it is in' do 
+      #ideally parts and thier mods should line up, but the core rule of KerbalX is that parts are unique.  There will only be one part of a given
+      #name on the server and after conflict resolution there will only be one part of a given name in the reader's part data.  It might be that 
+      #conflict resolution will assign to part to a different mod to the one it has been voted into on the server.  Therefore containing mod is ignored 
+      #in this assignment
+      server_parts = {"mod1" => ["part1", "part2", "part3", "part4"], "mod2" => ["part5", "part6", "part7"]}
+      reader_parts = {"mod1" => {"part1" => "some_prt_data", "part2" => "foobar", "part5" => "misplaced_part"}, "mod2" => {"part6" => "test"}}
+
+      @part_data.assign_part_data_to_parts reader_parts, server_parts
+      @part_data.parts.should == {"part1"=>"some_prt_data", "part2"=>"foobar", "part5" => "misplaced_part", "part6"=>"test"}
 
     end
 

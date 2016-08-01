@@ -21,42 +21,22 @@ module KerbalX
       #lookup_map = part_data.keys.map{|k| {k.downcase.gsub(" ","").gsub("_","") => k} }.reduce(Hash.new, :merge)
       msg "Looking for data for #{parts_without_data.map{|k,v| v}.flatten.count} parts...".blue
       @parts = {} 
-
       @not_found = []
 
-      @r = {:found => 0, :notfound => 0}
+      part_map = part_data.map{|mod, parts| parts}.reduce(Hash.new, :merge)
+
       parts_without_data.each do |mod_name, parts|
-        mod = part_data[mod_name] #|| lookup_map[mod_name]
-        if mod                   
-          parts.each do |part|
-            data = part_data[mod_name][part]
-            if data
-              @parts[part] = data
-            else
-              @not_found << part
-            end
-          end
-        else
-          @not_found << parts
-        end
-      end
-
-      @not_found.flatten!
-      unless @not_found.empty?
-        msg "#{@not_found.count} parts not found with direct lookup\nAttempting to find....".light_blue
-        found = 0
-        @not_found.each do |part|
-          mod = part_data.select{|k,v| v.keys.include?(part)}.map{|k,v| k}.first
-          if mod && part_data[mod][part]
-            @parts[part] = part_data[mod][part]
-            @not_found.delete(part)
-            found += 1
+        parts.each do |part|
+          data = part_map[part]
+          if data #&& !data.empty?
+            @parts[part] = data
+          else
+            @not_found << part
           end
         end
-        msg "Found data for additional #{found} parts".light_blue
+        print "Found data for #{@parts.keys.count} parts, #{@not_found.count} parts not found\r".blue
       end
-      msg "Totals: Found data for #{@parts.keys.count} parts, #{@not_found.count} parts still without data".blue
-
+      msg "Found data for #{@parts.keys.count} parts, #{@not_found.count} parts not found".blue
     end
 
 
@@ -154,6 +134,7 @@ module KerbalX
       regexp = /\b(#{module_name})\b/
 
       sel = part.select{|line| 
+        next if line.blank?
         if line.match(regexp)
           in_scope = true
           brackets = line.include?("{") ? 1 : 0
