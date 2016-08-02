@@ -171,12 +171,14 @@ module KerbalX
       print "Parts Found: #{count}".blue
       puts " done".green
      
+      print "\nRemoving duplicates and sorting...".light_blue
       #Construct parts hash. ensuring that part info is not blank and that it has a name key    
       @parts = part_data.select{|part|  
         !part.empty? && part.has_key?(:name)
       }.map{|n| 
         {n[:name].gsub("_",".") => n} 
       }.inject{|i,j| i.merge(j)}   
+      puts " done\n".green
 
     end
 
