@@ -78,7 +78,7 @@ module KerbalX
               atmo_isp= atmo_curve.select{|l| l.strip.match(/^key = 1/) }.first #atmo isp may not be present for all engines
               engine_data["isp"][:atmo]= atmo_isp.strip.sub("key = 1 ", "").to_f if atmo_isp
             rescue => e
-              log_error "failed to read ISP data for #{@identifier}, #{@name} - #{e}".yellow
+              log_error "failed to read ISP data for #{@identifier}, #{@name}".yellow
             end
           end        
 
@@ -95,7 +95,7 @@ module KerbalX
               end              
             end
           rescue => e
-            log_error "failed to read Propellant data for #{@identifier}, #{@name} - #{e}".yellow
+            log_error "failed to read Propellant data for #{@identifier}, #{@name}".yellow
           end
 
           #read thrust data

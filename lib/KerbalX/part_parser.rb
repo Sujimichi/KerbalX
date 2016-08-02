@@ -73,7 +73,7 @@ module KerbalX
       #@props = {}
       @ignored_cfgs = []
 
-
+      count = 0
       part_data = part_cfgs.map do |cfg_path|     
         begin          
           cfg = File.open(cfg_path,"r:bom|utf-8"){|f| f.readlines} #read .cfg file as r:bom|utf-8
@@ -108,7 +108,6 @@ module KerbalX
           part_info = {:dir => dir, :path => cfg_path }
 
           if cfg_path.match(/^GameData/)
-            print ".".light_blue
 
             folders = dir.split("/")
             mod_dir = folders[1] #mod dir is the directory inside GameData
@@ -134,12 +133,13 @@ module KerbalX
             #if cfg contains PART then split it on instances of PART (in the case of multiple parts in the same cfg) and parse each for details about the part
             if cfg.select{|line| line.match(/^PART/)}.first
               #incases of a maim mod dir having sub divisions within it    
-              sub_mod_dir = folders[2] if folders[2].downcase != "parts" 
+              sub_mod_dir = folders[2] if folders[2] && folders[2].downcase != "parts" 
               part_info.merge!(:sub_mod => sub_mod_dir) if sub_mod_dir
 
               
 
               @part_scanner.get_part_modules(cfg, "PART").map do |sub_component| #this deals with the case of a cfg file containing multiple parts
+                print "Parts Found: #{count += 1}\r".light_blue
                 #collect certain variables from part and return part's name            
                 begin
                   part = KerbalX::PartData.new({:part => sub_component, :identifier => mod_dir})
@@ -168,8 +168,9 @@ module KerbalX
         end
       end.flatten.compact
 
-      
-
+      print "Parts Found: #{count}".blue
+      puts " done".green
+     
       #Construct parts hash. ensuring that part info is not blank and that it has a name key    
       @parts = part_data.select{|part|  
         !part.empty? && part.has_key?(:name)
@@ -177,7 +178,6 @@ module KerbalX
         {n[:name].gsub("_",".") => n} 
       }.inject{|i,j| i.merge(j)}   
 
-      puts "done".blue
     end
 
        

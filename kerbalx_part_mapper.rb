@@ -25,6 +25,7 @@ ignore = KerbalX::IgnoreFile.new(@path) if File.exists?(File.join([@path, "ignor
 KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
   puts "Scanning Parts in #{@path}".blue
   puts "These mods will be ignored; #{ignore.join(", ")}".yellow unless ignore.blank?
+  puts "\n"
   parser = KerbalX::PartParser.new @path, :ignore_mods => ignore.to_a
   parser.process
   
