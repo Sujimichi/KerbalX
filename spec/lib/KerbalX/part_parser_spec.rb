@@ -148,6 +148,24 @@ describe KerbalX::PartParser do
   end
 
 
+  describe "multipart part files" do 
+
+    it 'should return multiple parts found in single file' do 
+      @path = File.join(KerbalX.root, "test_env")
+      @parser = KerbalX::PartParser.new @path
+      @parser.should_receive(:discover_cfgs).and_return Dir.glob( File.join(@path, "GameData", "MechJeb2", "**", "*.cfg")).map{|p| p.split("test_env/").last}
+      #raise @parser.discover_cfgs.inspect
+      @parser.process
+      @parser.parts.keys.should == ["mumech.MJ2.AR202", "mumech.MJ2.AR202.features1", "mumech.MJ2.AR202.features2", "mumech.MJ2.AR202.features3", "mumech.MJ2.AR202.features4", "mumech.MJ2.Pod"]
+
+      
+    
+    end
+
+
+  end
+
+
 end
 
 

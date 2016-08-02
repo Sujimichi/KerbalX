@@ -82,6 +82,7 @@ module KerbalX
           @ignored_cfgs << cfg_path          
           next
         end
+        
 
         #if the first attempt fails this is most likely due to a "invalid byte sequence in UTF-8" error. in which case in the rescue we fix the strings in the array 
         #with utf_safe (see Array in extensions.rb) and try again, but also allow for a line to fail and be ignored with rescue false
@@ -107,6 +108,8 @@ module KerbalX
           part_info = {:dir => dir, :path => cfg_path }
 
           if cfg_path.match(/^GameData/)
+            print ".".light_blue
+
             folders = dir.split("/")
             mod_dir = folders[1] #mod dir is the directory inside GameData
 
@@ -134,10 +137,13 @@ module KerbalX
               sub_mod_dir = folders[2] if folders[2].downcase != "parts" 
               part_info.merge!(:sub_mod => sub_mod_dir) if sub_mod_dir
 
+              
+
               @part_scanner.get_part_modules(cfg, "PART").map do |sub_component| #this deals with the case of a cfg file containing multiple parts
                 #collect certain variables from part and return part's name            
                 begin
                   part = KerbalX::PartData.new({:part => sub_component, :identifier => mod_dir})
+                  
                   unless part.name.nil?
                     part_info.merge!(:name => part.name, :attributes => part.attributes)
                     part_info.clone
@@ -160,10 +166,9 @@ module KerbalX
           @ignored_cfgs << cfg_path
           part_info = {}
         end
-
-        print ".".light_blue
-        part_info
       end.flatten.compact
+
+      
 
       #Construct parts hash. ensuring that part info is not blank and that it has a name key    
       @parts = part_data.select{|part|  
