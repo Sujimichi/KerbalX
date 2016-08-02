@@ -5,6 +5,7 @@ describe KerbalX::PartParser do
   before(:all) do 
     @path = File.join(File.dirname(__FILE__), "..", "..", "..", "test_env")
     @parser = KerbalX::PartParser.new @path
+    @parser.process
   end
 
   it 'it should find the correct number of parts' do 
@@ -14,7 +15,7 @@ describe KerbalX::PartParser do
     #There are also some part.cfgs that define multiple parts as well as the more common 1 part per cfg setup
     #includes Modules which modify parts (ie from TweakScale) which have in the past been falsely identifyed as parts
     #contains Agency definitions. 
-    @parser.parts.keys.count.should == 29
+    @parser.parts.keys.count.should == 36
   end 
 
   it "should find known problem parts" do 
@@ -28,16 +29,13 @@ describe KerbalX::PartParser do
     @parser.parts["B9.Control.RCS.Block.R6"][:mod].should == "B9_Aerospace"      
   end
 
-  it 'should have resouces associated with the parts' do 
-    @parser.parts["JetEngine"][:resources].should == ["LiquidFuel", "ElectricCharge", "IntakeAir"]
-    @parser.parts["IRPistonHalf"][:resources].should be_empty
+  it 'should have data for each part' do 
+    @parser.parts["JetEngine"].keys.should == [:dir, :path, :mod, :stock, :name, :attributes]
+    @parser.parts.each{|part,data|       
+      [:dir, :path, :mod, :stock, :name, :attributes].map{|k| data.keys.should be_include(k) }    
+    }
   end
 
-  it 'should have internals associated with the parts' do 
-    @parser.parts["mk1pod"][:internals].should == ["mk1PodCockpit"]
-    @parser.parts["sepMotor1"][:internals].should be_empty
-  end
- 
   it 'should set :stock => true on parts from standard stock parts' do     
     @parser.parts["JetEngine"][:stock].should == true
     @parser.parts["Size3AdvancedEngine"][:stock].should == true
@@ -48,6 +46,7 @@ describe KerbalX::PartParser do
   describe "with alternatve definition of stock parts" do 
     before(:all) do 
      @parser = KerbalX::PartParser.new @path, :stock_parts => ["Squad", "B9_Aerospace"]
+     @parser.process
     end
 
     it "should set stock => true on parts from given 'stock_parts' definition" do      
@@ -58,66 +57,11 @@ describe KerbalX::PartParser do
 
   end
 
-  describe "resouces" do 
-
-    it 'should have discovered resoucres' do 
-      @parser.resources.keys.should == [
-        "LiquidFuel", 
-        "Oxidizer", 
-        "SolidFuel", 
-        "MonoPropellant", 
-        "XenonGas", 
-        "ElectricCharge", 
-        "IntakeAir", 
-        "EVAPropellant", 
-        "B9CompressedAir"
-      ] 
-    end
-
-  end
-
-  describe "props" do 
-    it 'should have discovered props' do 
-      @parser.props.keys.should == ["NavBall", "B9_AbortButton", "B9_AbortButton2"]
-    end
-  end
-
-  describe "internals" do 
-    it 'should have discovered internals' do 
-      @parser.internals.keys.should == ["mk1PodCockpit", "PodCockpit", "B9_Cockpit_HL_Internal"]
-    end
-
-    it 'should associate props with internals' do 
-      @parser.internals["mk1PodCockpit"][:props].should == ["NavBall"]
-    end
-  end
-
-  describe "others" do 
-    it "should have discovered other 'unknown' things which are classed as 'other' and ignored" do 
-  
-      should_be_ignored = [
-        "GameData/Squad/Agencies/Agents.cfg",
-        "GameData/Squad/Resources/ScienceDefs.cfg",
-        "GameData/BoulderCo/ActiveTextureManagerConfigs/KAS.cfg",
-        "GameData/KerbPaint/Plugins/KerbPaint.cfg",
-        "GameData/TweakScale/Kethane_TweakScale.cfg",
-        "GameData/B9_Aerospace/Agencies/Agents.cfg", 
-        "GameData/B9_Aerospace/ATM_B9_Aerospace.cfg",
-        "GameData/KAS/addModule.cfg", 
-        "GameData/KAS/settings.cfg"
-      ]
-      
-      should_be_ignored.each do |ignored_cfg|
-        @parser.ignored_cfgs.should be_include ignored_cfg
-      end
-
-    end
-  end
-
 
   describe "ignore mods" do 
     before(:all) do 
       @parser = KerbalX::PartParser.new @path, :ignore_mods => ["NASAmission", "B9_Aerospace"]
+      @parser.process
     end
 
     it 'should not include part info from an ignored mod' do 
@@ -125,19 +69,13 @@ describe KerbalX::PartParser do
       @parser.parts.should_not have_key "Size3AdvancedEngine"
     end
 
-    it 'should not have resources from ignored mods' do  
-      @parser.resources.should_not have_key "B9CompressedAir"
-    end
-
-    it 'should not have interntals from ignored mods' do 
-      @parser.internals.should_not have_key "B9_Cockpit_HL_Internal"
-    end
 
   end
 
   describe "with GameData not present" do 
     before(:all) do 
       @parser = KerbalX::PartParser.new File.join([Dir.getwd, "lib"])
+      @parser.process
     end
 
     it 'should not explode, just will not find any parts' do 
