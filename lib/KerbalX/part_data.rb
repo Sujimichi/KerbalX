@@ -168,8 +168,8 @@ module KerbalX
 
         if val && val.to_i.to_s.eql?(val)
           val = val.to_i 
-        elsif val && val.include?(".") && "%.#{val.split(".").last.length}f" % val.to_f == val #essentially val.to_f.to_s == val, but allowing for val to have trailing 0s, ie: "0.50".  %.2f % 0.5 -> "0.50"
-          val = val.to_f
+        else
+          val = ("%.#{val.split(".").last.length}f" % val ).to_f rescue val #attempt to coerse into float if possible ie "0.4" or "1.005828E-02" otherwise return the original string
         end
         matched_attributes[var] = val unless val.nil?        
       end

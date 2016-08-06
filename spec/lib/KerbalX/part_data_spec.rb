@@ -54,6 +54,47 @@ describe KerbalX::PartData do
 
   end
 
+  describe "read_attributes_from" do 
+    before :each do 
+      @p = KerbalX::PartData.new
+      path_1 = File.join(@root, "GameData/Squad/Parts/FuelTank/fuelTank_long/part.cfg")
+      @file = File.open(path_1,"r:bom|utf-8"){|f| f.readlines}
+    end
+
+    it 'should return first matching given values for a given container' do 
+      @p.read_attributes_from(@file, ["name"]).should == {"name" => "fuelTank_long"}
+    end
+
+    it 'should return multiple given values for the container' do 
+      @p.get_part_modules(@file, "RESOURCE").map do |res|
+        @p.read_attributes_from(@file, ["name", "amount", "maxAmount"])
+      end.should == [{"name"=>"fuelTank_long", "amount"=>360, "maxAmount"=>360}, {"name"=>"fuelTank_long", "amount"=>360, "maxAmount"=>360}]
+    end
+
+    it 'should interpret strings as string, integers as integers and floats as floats' do 
+      container = ["RESOURCE", "{", " name = LiquidFuel", " amount = 42.2", " maxAmount = 360", "}"]
+      data = @p.read_attributes_from(container, ["name", "amount", "maxAmount"])
+      data["name"].should be_a String
+      data["amount"].should be_a Float
+      data["maxAmount"].should be_a Integer
+    end
+
+    it 'should interpret numbers in scientific notation' do 
+      container = ["RESOURCE", "{", " name = LiquidFuel", " amount = 1.005828E-02", " maxAmount = 38.5", "}"]
+      data = @p.read_attributes_from(container, ["name", "amount", "maxAmount"])
+      data["maxAmount"].should == 38.5
+      data["amount"].should == 0.01005828
+    end
+
+    it 'should ignore missing attributes' do 
+      container = ["RESOURCE", "{", " name = LiquidFuel", " maxAmount = 38.5", "}"]
+      data = @p.read_attributes_from(container, ["name", "amount", "maxAmount"])
+      data.keys.should == ["name", "maxAmount"]
+      data["maxAmount"].should == 38.5      
+    end
+
+  end
+
 
   describe "assign_part_data_to_parts" do 
     before :each do 
