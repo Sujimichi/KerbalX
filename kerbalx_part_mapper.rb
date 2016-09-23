@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 #This is the script which is compiled into a .exe by OCRA for use in a windows environment that is devoid of ~joy~ Ruby.
 
 
