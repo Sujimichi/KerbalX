@@ -56,6 +56,25 @@ Double check the @site variable, ensure it points to KerablX.com for production 
     
     ocra kerbalx_part_mapper.rb --no-enc --output 'PartMapper.exe'
     
+
+##Standalone script "compilation"
+For non-Windows platforms (Linux; Mac should work in theory but hasn't been tested) with Ruby installed, a single `PartMapper` executable can be created using the ["mergit"](https://github.com/docwhat/mergit) tool.
+
+    # In your shell...
+    bundle install     # skip if already installed
+    gem install mergit # skip if already installed; might require 'sudo'
+    irb                # the 'mergit' command doesn't work, so we'll do it manually
     
+    # In IRB...
+    require 'mergit'
+    mergit = Mergit.new(:search_path => [ './lib' ])
+    merged = mergit.process_file('kerbalx_part_mapper.rb')
+    File.open('PartMapper', 'w') { |file| file.write(merged) }
+    exit
     
-    
+    # Back in your shell...
+    chmod +x PartMapper
+    cp PartMapper ignored_mods.txt "~/path/to/Kerbal Space Program" # or wherever
+    cd "~/path/to/Kerbal Space Program"
+    # Grab your KerbalX.key
+    ./PartMapper
