@@ -3,15 +3,16 @@
 
 require 'KerbalX'
 
-puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n".green
-
-
 @site = "https://kerbalx.com"
 #@site = "http://localhost:3000"
 #@site = "http://kerbalx-stage.herokuapp.com"
 
 @path = Dir.getwd
 #@path = "/home/sujimichi/coding/lab/KerbalX-CKAN" 
+
+puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n".green
+puts "Remote Site url: #{@site}\nLocal Data store: #{@path}".green
+
 
 KerbalX::Interface.new(@site, KerbalX::AuthToken.new(@path)) do |kerbalx|
 
