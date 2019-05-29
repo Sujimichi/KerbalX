@@ -107,7 +107,9 @@ module KerbalX
       
       #inject ckan like data for Stock parts, requires that the stock (Squad) game data folder is present in accordingly named zip in the mod archive (ie Squad-1.1.2.zip) 
       @data["Squad"] = [{:identifier => "Squad", :name => "Squad", :url => "", :version => @config["ksp_version"], :status => nil}]       
-      @data["MakingHistoryDLC"] = [{:identifier => "MakingHistoryDLC", :name => "Making History DLC", :url => "", :version => @config["making_history_version"], :status => nil}]
+      @data["MakingHistoryDLC"] =  [{:identifier => "MakingHistoryDLC",  :name => "Making History DLC",  :url => "", :version => @config["making_history_version"],  :status => nil}] if @config["making_history_version"]
+      @data["BreakingGroundDLC"] = [{:identifier => "BreakingGroundDLC", :name => "Breaking Ground DLC", :url => "", :version => @config["breaking_ground_version"], :status => nil}] if @config["breaking_ground_version"]
+      
       @data
     end
 

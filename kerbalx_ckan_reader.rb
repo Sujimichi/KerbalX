@@ -10,7 +10,7 @@ require 'KerbalX'
 @path = Dir.getwd
 #@path = "/home/sujimichi/coding/lab/KerbalX-CKAN" 
 
-puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n\n".green
+puts "\nCKAN-Meta Reader for KerbalX.com - v#{KerbalX::VERSION}\n".green
 puts "Remote Site url: #{@site}\nLocal Data store: #{@path}".green
 
 
