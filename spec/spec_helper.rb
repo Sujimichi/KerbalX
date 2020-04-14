@@ -16,7 +16,9 @@
 # See http://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
 #
 
-Bundler.setup 
+require "bundler"
+
+Bundler.setup
 require 'KerbalX'
 
 RSpec.configure do |config|

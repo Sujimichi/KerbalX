@@ -19,6 +19,60 @@
 
 module KerbalX
 
+  class InstallStanza
+
+    def initialize(stanza)
+      @file = stanza[:file]
+      @find = stanza[:find]
+      @find_regexp = stanza[:find_regexp]
+      @filter = stanza[:filter]
+      @filter_regexp = stanza[:filter_regexp]
+    end
+
+    def self.default(data)
+      InstallStanza.new({:find => data[:identifier]})
+    end
+
+    def match?(path)
+      if not @file.nil?
+        path.start_with?(@file) and not filtered?(path)
+      elsif not @find.nil?
+        path.include?(@find) and not filtered?(path)
+      elsif not @find_regexp.nil?
+        path.match?(@find_regexp) and not filtered?(path)
+      else
+        false
+      end
+    end
+
+    def filtered?(path)
+      if not @filter.nil?
+        if @filter.is_a?(Array)
+          @filter.any? {|f| path.include?(f)}
+        else
+          path.include?(@filter)
+        end
+      elsif not @filter_regexp.nil?
+        path.match?(@filter_regexp)
+      else
+        false
+      end
+    end
+
+  end
+
+  class InstallStanzas
+
+    def initialize(data)
+      @stanzas = data[:install].nil? ? [InstallStanza.default(data)] : data[:install].map {|stanza| InstallStanza.new(stanza)}
+    end
+
+    def match?(path)
+      @stanzas.any? {|stanza| stanza.match?(path)}
+    end
+
+  end
+
   class CkanReader
     require 'json'
     require 'open-uri'
@@ -98,7 +152,7 @@ module KerbalX
       @data = files.map do |file|
         begin
           data = JSON.parse(File.open(file, "r"){|f| f.readlines}.join("\n")) #Read file and parse contents with JSON
-          {:identifier => data["identifier"], :name => data["name"], :url => data["download"], :version => data["version"], :status => data["release_status"]} #return required values
+          {:identifier => data["identifier"], :name => data["name"], :url => data["download"], :version => data["version"], :status => data["release_status"], :install => InstallStanzas.new(data)} #return required values
         rescue => e
           log_error [file, "ERROR: failed to find or parse file\n#{e}"]
           {} #in case of error return an empty hash
@@ -313,13 +367,14 @@ module KerbalX
     def unpack identifier_hash
       data = identifier_hash_for identifier_hash #returns latest version identifier_hash if given ckan_identifier or just returns if given an identifier_hash
       zip_name = "#{data[:identifier]}-#{data[:version]}.zip"
+      install = data[:install]
       msg "Unpacking #{zip_name}"
       unpacked_cfg_paths = []
-      Zip::ZipFile.open(File.join([@dir, @mod_dir, zip_name])) do |zip| 
-        zip.each do |entry| 
-          if entry && entry.name.match(/.cfg$/)
+      Zip::ZipFile.open(File.join([@dir, @mod_dir, zip_name])) do |zip|
+        zip.each do |entry|
+          if entry && entry.name.match(/.cfg$/) && install.match?(entry.name)
             path = entry.name
-            path = File.join(["GameData", path]) unless path.match(/^GameData/)        
+            path = File.join(["GameData", path]) unless path.match(/^GameData/)
             path = File.join([@dir, path])
             unpacked_cfg_paths << path
             FileUtils.mkpath File.dirname(path)
