@@ -1,8 +1,65 @@
 require 'spec_helper'
 
 
-describe KerbalX::CkanReader do 
-  before :each do  
+describe KerbalX::InstallStanzas do
+  it 'file should match only installed files' do
+    install = KerbalX::InstallStanzas.new({
+      :install => [{
+        :file => "GameData/TestModule"
+      }]
+    })
+    expect(install.match?("GameData/TestModule")).to be true
+    expect(install.match?("GameData/TestModule/my_patch.cfg")).to be true
+    expect(install.match?("GameData/TestModule/Parts/my_part.cfg")).to be true
+    expect(install.match?("install_instructions.txt")).to be false
+    expect(install.match?("TestModule/bad_path_patch.cfg")).to be false
+    expect(install.match?("GameData/BundledModule/Parts/weird_part.cfg")).to be false
+  end
+  it 'find should match installed files' do
+    install = KerbalX::InstallStanzas.new({
+      :install => [{
+        :find => "TestModule"
+      }]
+    })
+    expect(install.match?("TestModule")).to be true
+    expect(install.match?("TestModule/my_patch.cfg")).to be true
+    expect(install.match?("TestModule/Parts/my_part.cfg")).to be true
+    expect(install.match?("BundledModule/Parts/another_part.cfg")).to be false
+  end
+  it 'find_regexp should match only installed files' do
+    install = KerbalX::InstallStanzas.new({
+      :install => [{
+        :find_regexp => "CoolModule-[0-9.]+"
+      }]
+    })
+    expect(install.match?("CoolModule-1.2.3.4/test_file.txt")).to be true
+    expect(install.match?("CoolModule-asdf/test_file.txt")).to be false
+    expect(install.match?("DumbModule-3.4.5/test_file.txt")).to be false
+  end
+  it 'default stanza should install only identifier-named folder' do
+    install = KerbalX::InstallStanzas.new({
+      :identifier => "MyModule"
+    })
+    expect(install.match?("MyModule/test_patch.cfg")).to be true
+    expect(install.match?("GameData/MyModule/test_patch.cfg")).to be true
+    expect(install.match?("GameData/MyModule/Parts/new_part.cfg")).to be true
+    expect(install.match?("BundledModule/part.cfg")).to be false
+  end
+  it 'should not match filtered files' do
+    install = KerbalX::InstallStanzas.new({
+      :install => [{
+        :find => "FilteredModule",
+        :filter => [ "bad_file.cfg" ]
+      }]
+    })
+    expect(install.match?("FilteredModule/good_file.cfg")).to be true
+    expect(install.match?("FilteredModule/bad_file.cfg")).to be false
+    expect(install.match?("FilteredModule/Parts/bad_file.cfg")).to be false
+  end
+end
+
+describe KerbalX::CkanReader do
+  before :each do
     @path = KerbalX.root(["test_env"])
     
   end
